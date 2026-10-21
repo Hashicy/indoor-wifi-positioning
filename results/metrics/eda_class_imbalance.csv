@@ -1,0 +1,4 @@
+,classes,largest class,smallest class,imbalance ratio (largest / smallest),majority-class accuracy (%)
+building,3,9492,5196,1.83,47.6
+floor (all buildings),5,5048,1102,4.58,25.3
+building–floor (13 classes),13,2709,948,2.86,13.6

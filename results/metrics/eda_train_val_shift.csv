@@ -1,4 +1,4 @@
 quantity,KS statistic,p-value
 APs detected per scan,0.131,3.1e-16
-Strongest RSSI per scan,0.079,4.2e-06
-All observed RSSI values,0.057,4.0e-49
+Strongest signal per scan,0.079,4.2e-06
+All signal readings,0.057,4.0e-49

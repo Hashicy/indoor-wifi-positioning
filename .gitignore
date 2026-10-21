@@ -1,0 +1,20 @@
+# Raw data (download instructions in data/README.md)
+data/*
+!data/README.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Saved models (large files)
+models/*
+!models/README.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

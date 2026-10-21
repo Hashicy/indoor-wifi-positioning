@@ -1,0 +1,17 @@
+,train,validation
+rows,19937,1111
+columns,529,529
+WAP columns,520,520
+buildings,3,3
+floors,5,5
+building-floor pairs,13,13
+users,18,1
+phones,16,11
+first capture,2013-05-30,2013-09-19
+last capture,2013-06-20,2013-10-08
+% WAP cells = 100 (not detected),96.54,96.83
+mean APs detected per scan,18.0,16.5
+median APs detected per scan,17,15
+scans with 0 APs detected,76,0
+exact duplicate rows,637,0
+null values,0,0

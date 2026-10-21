@@ -1,6 +1,10 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{graphicx}
 \usepackage{amsmath}
+\usepackage{booktabs}
+
+% look for figures in report/figures/ first, then in results/figures/
+\graphicspath{{figures/}{../results/figures/}}
 
 \title{Indoor Positioning via Signal Strength Features and Deep Multitask Learning}
 \author{Team Members}
@@ -15,6 +19,7 @@ TODO
 \section{Introduction}
 \section{Related Work}
 \section{Dataset and Exploratory Analysis}
+\input{sections/dataset_eda}
 \section{Methodology}
 \section{Results}
 \section{Conclusion}

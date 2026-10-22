@@ -1,4 +1,4 @@
 quantity,KS statistic,p-value
-APs detected per scan,0.131,3.1e-16
-Strongest signal per scan,0.079,4.2e-06
-All signal readings,0.057,4.0e-49
+APs detected per scan,0.123,2.6e-14
+Strongest signal per scan,0.077,6.9e-06
+All signal readings,0.065,7.3e-65

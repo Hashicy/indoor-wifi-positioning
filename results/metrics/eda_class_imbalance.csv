@@ -1,4 +1,4 @@
 target,classes,largest,smallest,largest / smallest,accuracy if always guessing the largest (%)
-building,3,9492,5196,1.83,47.6
-floor,5,5048,1102,4.58,25.3
-building-floor,13,2709,948,2.86,13.6
+building,3,9116,4938,1.85,47.2
+floor,5,5041,727,6.93,26.1
+building-floor,13,2708,727,3.72,14.0

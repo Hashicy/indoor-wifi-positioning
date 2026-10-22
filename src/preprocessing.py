@@ -171,39 +171,53 @@ class WifiPreprocessor(BaseEstimator, TransformerMixin):
             raise RuntimeError("Call fit() before transform().")
         out = self._transform_core(X)
         if self.scale and self._scaler is not None:
-            out[self._numeric_features] = self._scaler.transform(out[self._numeric_features])
+            scaled_vals = self._scaler.transform(out[self._numeric_features])
+            out = pd.DataFrame(scaled_vals, columns=self._numeric_features, index=out.index)
         return out
 
     def _transform_core(self, X: pd.DataFrame) -> pd.DataFrame:
         """Transform without scaling (used during fit to determine columns)."""
-        out = pd.DataFrame(index=X.index)
-
         # 1. Replace sentinel
         rssi = X[self._rssi_cols].copy()
-        original_sentinel_mask = rssi == self.missing_sentinel
+        original_sentinel_mask = (rssi == self.missing_sentinel)
         rssi = rssi.replace(self.missing_sentinel, self.impute_value)
-        out[self._rssi_cols] = rssi
 
-        # 2. Missingness / detection indicators
+        parts = [rssi]
+
+        # 2. Missingness / detection indicators (vectorized in a single operation)
         if self.add_indicators:
-            for c in self._rssi_cols:
-                if self.indicator_mode == "observed":
-                    out[f"{c}_miss"] = (~original_sentinel_mask[c]).astype(np.int8)
-                else:
-                    out[f"{c}_miss"] = original_sentinel_mask[c].astype(np.int8)
+            if self.indicator_mode == "observed":
+                ind_df = (~original_sentinel_mask).astype(np.int8)
+            else:
+                ind_df = original_sentinel_mask.astype(np.int8)
+            ind_df.columns = [f"{c}_miss" for c in self._rssi_cols]
+            parts.append(ind_df)
 
-        # 3. Aggregate features
+        # 3. Aggregate features (vectorized across rows)
         if self.add_aggregates:
-            observed = self._observed_mask(out, self._rssi_cols, self.impute_value)
-            obs_vals = out[self._rssi_cols].where(observed)
-            out["num_aps"]   = observed.sum(axis=1).astype(int)
-            out["max_rssi"]  = obs_vals.max(axis=1)
-            out["mean_rssi"] = obs_vals.mean(axis=1)
-            out["std_rssi"]  = obs_vals.std(axis=1)
-            out["range_rssi"] = obs_vals.max(axis=1) - obs_vals.min(axis=1)
-            # Fill NaN for rows where nothing was observed
-            for col in ["max_rssi", "mean_rssi", "std_rssi", "range_rssi"]:
-                out[col] = out[col].fillna(self.impute_value if col != "range_rssi" else 0.0)
+            observed = rssi != self.impute_value
+            obs_vals = rssi.where(observed)
+
+            num_aps = observed.sum(axis=1).astype(int)
+            max_rssi = obs_vals.max(axis=1).fillna(float(self.impute_value))
+            mean_rssi = obs_vals.mean(axis=1).fillna(float(self.impute_value))
+            std_rssi = obs_vals.std(axis=1).fillna(float(self.impute_value))
+            range_rssi = (obs_vals.max(axis=1) - obs_vals.min(axis=1)).fillna(0.0)
+
+            agg_df = pd.DataFrame(
+                {
+                    "num_aps": num_aps,
+                    "max_rssi": max_rssi,
+                    "mean_rssi": mean_rssi,
+                    "std_rssi": std_rssi,
+                    "range_rssi": range_rssi,
+                },
+                index=X.index,
+            )
+            parts.append(agg_df)
+
+        # Concatenate all column blocks at once to prevent fragmentation
+        out = pd.concat(parts, axis=1)
         return out
 
     def _get_numeric_col_names(self) -> List[str]:

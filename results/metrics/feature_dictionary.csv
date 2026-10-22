@@ -1,0 +1,8 @@
+Feature(s),Category,Description,Unit
+WAP001–WAP520,RSSI,Received signal strength from each of the 520 access points.  Original sentinel 100 (not detected) is replaced by −110 dBm.,dBm
+WAP001_miss–WAP520_miss,Indicator,"Binary flag: 1 if the AP was *not* detected in this scan, 0 if it was.",0 / 1
+num_aps,Aggregate,Number of access points detected in this scan (count of WAP columns with original value ≠ 100).,count
+max_rssi,Aggregate,Strongest RSSI among detected access points in this scan.,dBm
+mean_rssi,Aggregate,Mean RSSI of the detected access points (excludes missing / imputed values).,dBm
+std_rssi,Aggregate,Standard deviation of RSSI among detected APs.  Captures signal diversity.,dBm
+range_rssi,Aggregate,Difference between the strongest and weakest detected RSSI.  Larger range may indicate open areas.,dBm

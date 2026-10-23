@@ -1,0 +1,51 @@
+% !TEX root = ../main.tex
+% ─────────────────────────────────────────────────────────────────────────────
+% Section: Introduction
+% Included from main.tex with \input{sections/introduction}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\label{sec:introduction}
+
+Location-based services (LBS) have become essential to modern commercial, logistical, and emergency operations. While Global Navigation Satellite Systems (GNSS) deliver reliable sub-metre positioning in open outdoor environments, their microwave signals are heavily attenuated, scattered, and blocked by structural building materials such as reinforced concrete, tinted glass, and steel frames~\cite{torres2014ujiindoorloc}. Consequently, satellite-based localization fails in indoor environments where humans spend upwards of 80\% of their daily lives.
+
+To bridge this operational divide, Indoor Positioning Systems (IPS) leverage opportunistic terrestrial radio-frequency (RF) signals. Among available technologies—including Bluetooth Low Energy (BLE), Ultra-Wideband (UWB), and cellular signals—Wireless Local Area Network (WLAN / Wi-Fi) infrastructure stands out due to its ubiquitous presence across campuses, hospitals, transit terminals, and commercial complexes~\cite{feng2022survey}. Utilizing existing IEEE 802.11 access points (APs) avoids the substantial capital cost of deploying specialized hardware anchor nodes.
+
+Rather than relying on explicit radio propagation modeling (such as log-distance path loss or ray tracing)—which requires knowing exact AP coordinates, antenna patterns, and dynamic indoor floor layouts—\emph{fingerprinting} reframes localization as an empirical pattern-recognition problem~\cite{torres2014ujiindoorloc, torres2015comprehensive}. During an offline survey phase, received signal strength indication (RSSI) values from all detectable APs are cataloged at surveyed reference locations to form a radio map. During online operation, an incoming real-time RSSI vector observed by a mobile device is matched against the database or fed to a predictive model to estimate user position.
+
+Despite its practicality, Wi-Fi RSSI fingerprinting presents three fundamental machine-learning challenges:
+\begin{enumerate}
+    \item \textbf{High Dimensionality and Extreme Sparsity:} In enterprise environments with hundreds of deployed APs, any single scan detects only a small subset of visible transmitters (typically 3--5\%), leaving over 95\% of feature dimensions unobserved~\cite{torres2014ujiindoorloc}.
+    \item \textbf{Complex Propagation Dynamics and Device Heterogeneity:} Multipath fading, temporal signal fluctuation, human shadowing, and antenna gain differences across mobile phone vendors distort recorded decibel levels, introducing substantial noise~\cite{torres2015comprehensive}.
+    \item \textbf{Coupled Hierarchical Spatial Targets:} An indoor location is not merely a pair of continuous metric coordinates; it possesses discrete topological context—specifically, which building and floor the user occupies. Misclassifying a floor or building results in severe operational failure (e.g., dispatching emergency responders to the wrong level), even if the 2D Euclidean distance error appears deceptively small.
+\end{enumerate}
+
+\subsection{Research Gap and Motivation}
+In prevailing literature, indoor positioning targets are predominantly addressed in isolation:
+\begin{itemize}
+    \item \emph{Decoupled Single-Task Models:} Building and floor classification are frequently trained as distinct classifiers (e.g., using $k$-NN, Support Vector Machines, or Random Forests~\cite{salamah2016enhanced}), while metric coordinate regression is handled by completely independent models. Under this decoupled paradigm, the coordinate regression model cannot leverage the rich inductive biases learned by building and floor classifiers.
+    \item \emph{Cascaded Hierarchical Pipelines:} Several architectures (e.g.,~\cite{kim2018scalable}) employ a cascading pipeline: a coarse classifier selects a building, a subsequent classifier selects a floor, and a building/floor-specific sub-network regresses $(x, y)$ coordinates. While physically intuitive, cascading systems suffer from catastrophic \emph{error propagation}: an error in the initial building or floor stage irrevocably ruins downstream coordinate estimation.
+    \item \emph{Lack of Controlled End-to-End Multitask Benchmarks:} While deep neural networks have demonstrated strong feature extraction capabilities~\cite{nowicki2017low, song2019cnnloc}, there remains a lack of controlled, unified comparisons on standardized public benchmarks that benchmark classical ML against both single-task and unified multi-task deep architectures on identical input representations.
+\end{itemize}
+
+Building upon the theoretical foundations of Multitask Learning (MTL) articulated by Caruana~\cite{caruana1997multitask}, related tasks trained in parallel with a shared internal representation benefit from inductive transfer mechanisms: \emph{data amplification}, \emph{eavesdropping}, \emph{attention focusing}, and \emph{representation bias}. In indoor positioning, learning coarse discrete boundaries (buildings and floors) forces hidden representations to encode macro-scale spatial geometry, which can act as a regularizer for fine-grained coordinate regression.
+
+\subsection{Research Questions}
+This investigation is guided by four central research questions:
+\begin{itemize}
+    \item[\textbf{RQ1:}] \emph{Model Baseline Comparison.} How do classical machine learning baselines ($k$-NN, Random Forest, XGBoost) compare against deep neural network architectures across discrete classification (building, floor) and continuous regression (coordinates)?
+    \item[\textbf{RQ2:}] \emph{Inductive Transfer in Multitask Learning.} Does a unified hard-parameter-sharing multitask network outperform isolated single-task models in 2D coordinate regression by jointly optimizing building, floor, and coordinate objectives?
+    \item[\textbf{RQ3:}] \emph{Metric Discrepancy.} How do discrete classification accuracy and continuous mean positioning error (MPE) interact, and what trade-offs emerge when balancing loss functions between heterogeneous task heads?
+    \item[\textbf{RQ4:}] \emph{Robustness to Signal Sparsity.} How resilient are shared representations to extreme unobserved-signal sparsity compared to instance-based and ensemble baselines?
+\end{itemize}
+
+\subsection{Research Objectives and Expected Contributions}
+To address these research questions, this project undertakes the following specific objectives:
+\begin{enumerate}
+    \item \textbf{Comprehensive Literature and Theoretical Review:} Systematically review existing classical ML and deep learning methods for Wi-Fi positioning, establishing mathematical formulations for multi-objective loss optimization.
+    \item \textbf{Controlled Benchmark Framework:} Construct a standardized evaluation pipeline on the UJIIndoorLoc public benchmark~\cite{torres2014ujiindoorloc}, ensuring zero validation leakage and rigorous comparison across $k$-NN, Random Forest, XGBoost, Single-Task Deep Networks, and Multitask Deep Networks.
+    \item \textbf{Unified Multitask Architecture Design:} Design and implement a hard-parameter-sharing neural network capable of simultaneous multi-output inference (building, floor, longitude, latitude) from raw preprocessed 520-dimensional RSSI fingerprints.
+    \item \textbf{Empirical Analysis of Multi-Objective Balancing:} Investigate loss weighting strategies ($\lambda_b, \lambda_f, \lambda_c$) to avoid negative transfer and harmonize categorical cross-entropy with continuous metric regression.
+\end{enumerate}
+
+\subsection{Paper Organization}
+The remainder of this report is organized as follows: Section~\ref{sec:related-work} reviews related work, comparative taxonomies, and theoretical MTL foundations. Section~\ref{sec:dataset-eda} details the UJIIndoorLoc benchmark and exploratory data analysis. Section~\ref{sec:feature-engineering} outlines the preprocessing protocol and missing-signal handling. Section~\ref{sec:methodology} describes the model architectures, loss formulations, and training strategies. Section~\ref{sec:results} presents comparative empirical results, ablation studies, and discussion. Finally, Section~\ref{sec:conclusion} concludes the paper with future research directions.

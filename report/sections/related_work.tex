@@ -1,0 +1,150 @@
+% !TEX root = ../main.tex
+% ─────────────────────────────────────────────────────────────────────────────
+% Section: Related Work and Theoretical Foundation
+% Included from main.tex with \input{sections/related_work}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\label{sec:related-work}
+
+Indoor positioning via Wi-Fi fingerprinting has evolved significantly over the past two decades. This section synthesizes existing research across instance-based matching, ensemble learning, and deep learning architectures, contrasts their characteristics, and establishes the theoretical foundations of multitask learning.
+
+\subsection{Wi-Fi RSSI Fingerprinting and Instance-Based Baselines}
+The foundational paradigm for Wi-Fi localization was pioneered by RADAR~\cite{torres2014ujiindoorloc}, which demonstrated that RF signal vectors observed from fixed transmitters correlate with spatial coordinates. Fingerprinting operates without time-synchronization hardware or explicit line-of-sight propagation modeling by decomposing positioning into an offline radio-map survey and an online pattern-matching phase.
+
+Among instance-based techniques, $k$-Nearest Neighbors ($k$-NN) and Weighted $k$-Nearest Neighbors (WKNN) remain the standard benchmarks. Given an incoming fingerprint $\mathbf{x}$, WKNN calculates signal-space distances $d(\mathbf{x}, \mathbf{x}_i)$ against all stored fingerprints $\mathbf{x}_i$ in the radio map $\mathcal{D}_{\text{train}}$, selects the $k$ nearest exemplars, and predicts coordinates as:
+\begin{equation}
+    \hat{\mathbf{y}}_c = \sum_{i=1}^k w_i \mathbf{y}_{c,i}, \quad w_i = \frac{1 / (d(\mathbf{x}, \mathbf{x}_i) + \epsilon)}{\sum_{j=1}^k 1 / (d(\mathbf{x}, \mathbf{x}_j) + \epsilon)}
+\end{equation}
+Torres-Sospedra et al.~\cite{torres2015comprehensive} conducted an exhaustive evaluation of 21 distance and similarity metrics on the UJIIndoorLoc dataset~\cite{torres2014ujiindoorloc}, confirming that non-linear and normalized distance formulations (such as Sørensen and Manhattan distances) often outperform raw Euclidean distance in sparse, high-dimensional RSSI space. However, instance-based methods suffer from high computational complexity during inference ($\mathcal{O}(M \cdot N)$ where $M$ is the radio-map size and $N$ is the number of WAPs), large memory footprints on edge devices, and an inability to learn abstract invariant representations across heterogeneous devices.
+
+\subsection{Tree-Based Ensembles: Random Forest and Gradient Boosting}
+To overcome the sensitivity of $k$-NN to noise and outliers, tree-based ensemble methods have gained widespread adoption. Random Forests (RF) construct ensembles of decorrelated decision trees via bootstrap aggregation and random subspace feature selection. Decision trees possess characteristics well matched to RF signals:
+\begin{enumerate}
+    \item \textbf{Non-Monotonic Boundary Partitioning:} Trees naturally isolate unobserved sentinel indicators (e.g., $+100$ dBm or $-110$ dBm) from active measurements ($-104$ to $0$ dBm) using single axis-aligned splits.
+    \item \textbf{Variance Reduction:} Averaging predictions across hundreds of stochastic trees suppresses the high variance introduced by human body shadowing and multipath fluctuations.
+    \item \textbf{Intrinsic Feature Selection:} Impurity-based metrics identify which subsets of APs uniquely resolve specific campus zones.
+\end{enumerate}
+Salamah et al.~\cite{salamah2016enhanced} demonstrated that pairing Random Forest with Principal Component Analysis (PCA) achieved high zone classification accuracy while reducing feature dimensionality and computational training overhead by over 70\%.
+
+Gradient Boosted Decision Trees (GBDT), notably XGBoost, refine this paradigm by training shallow trees sequentially to minimize an arbitrary differentiable loss function via second-order Taylor approximations. XGBoost incorporates explicit regularization ($\ell_1$ and $\ell_2$ penalties on leaf weights) and dedicated sparsity-aware split finding, which dynamically directs missing or unobserved access point values to the default branch that maximizes gain.
+
+\subsection{Deep Learning for Wi-Fi Fingerprinting}
+With the advent of deep learning, neural architectures have been applied to capture complex non-linear interactions across large WAP arrays without manual feature engineering~\cite{feng2022survey}.
+Nowicki and Wietrzykowski~\cite{nowicki2017low} demonstrated that deep multilayer perceptrons (MLP) trained with stacked autoencoders achieved near-perfect building and floor classification on UJIIndoorLoc, demonstrating that deep hidden layers can extract robust topological representations despite device diversity.
+
+Song et al.~\cite{song2019cnnloc} proposed CNNLoc, reformulating 1D RSSI vectors into multi-channel or spatial representations to leverage 1D/2D Convolutional Neural Networks (CNNs). Their work demonstrated that local convolutional filters capture spatial signal correlation across adjacent AP groups, reducing mean positioning error compared to traditional shallow baselines. A comprehensive survey by Feng et al.~\cite{feng2022survey} highlights that while deep networks consistently outperform classical ML in representation capacity, existing approaches overwhelmingly target either classification or regression separately, or cascade them sequentially.
+
+\subsection{Hierarchical and Multitask Positioning Architectures}
+Because indoor locations naturally exhibit hierarchical structure (building $\to$ floor $\to$ 2D coordinates), several works have attempted multi-stage localization. Kim et al.~\cite{kim2018scalable} proposed a scalable hierarchical DNN for UJIIndoorLoc consisting of stacked autoencoders and a decision tree hierarchy. In their system, an initial classifier determines the building, routing the sample to a building-specific floor classifier, which in turn routes the sample to a local coordinate regression model. While this hierarchical decomposition reduces the complexity of each sub-model, it is inherently vulnerable to \emph{error compounding}: an early misclassification in building or floor assignment guarantees a catastrophic localization failure in metric coordinates.
+
+\subsection{Theoretical Foundations of Multitask Learning}
+Multitask Learning (MTL) provides a principled machine learning paradigm to model related targets jointly without cascading error propagation. As formalized by Caruana~\cite{caruana1997multitask}, MTL improves generalization performance by training multiple related tasks in parallel using a shared representation.
+
+\begin{figure}[!t]
+\centering
+% Conceptual schematic of Hard Parameter Sharing Architecture
+\begin{minipage}{0.95\columnwidth}
+\centering
+\fbox{\parbox{0.9\columnwidth}{\centering \small
+\textbf{Hard Parameter Sharing MTL Architecture}\\[4pt]
+\texttt{Input:} $\mathbf{x} \in \mathbb{R}^{520}$ (Preprocessed RSSI Vector)\\[2pt]
+$\Downarrow$\\[2pt]
+\textbf{Shared Encoder} $\mathbf{z} = g(\mathbf{x}; \mathbf{\Theta}_{\text{shared}})$\\
+(Dense $\to$ BatchNorm $\to$ ReLU $\to$ Dropout layers)\\[2pt]
+$\swarrow$ \hspace{28pt} $\Downarrow$ \hspace{28pt} $\searrow$\\[2pt]
+\textbf{Head 1:} Building \quad \textbf{Head 2:} Floor \quad \textbf{Head 3:} Coordinates\\
+$\hat{\mathbf{y}}_b = \text{Softmax}(\mathbf{W}_b \mathbf{z})$ \quad $\hat{\mathbf{y}}_f = \text{Softmax}(\mathbf{W}_f \mathbf{z})$ \quad $\hat{\mathbf{y}}_c = \mathbf{W}_c \mathbf{z} + \mathbf{b}_c$
+}}
+\end{minipage}
+\caption{Conceptual schema of the hard-parameter-sharing multitask architecture for simultaneous building, floor, and coordinate estimation.}
+\label{fig:mtl-arch}
+\end{figure}
+
+In hard parameter sharing (Figure~\ref{fig:mtl-arch}), the initial hidden layers are shared across all tasks, while task-specific heads branch out near the output. Caruana identified four key inductive mechanisms enabled by shared representations:
+\begin{enumerate}
+    \item \textbf{Data Amplification:} Samples informative for floor differentiation also tune the shared feature extractor for coordinate regression, effectively increasing the statistical sample size.
+    \item \textbf{Eavesdropping:} Tasks with subtle target gradients can ``eavesdrop'' on representations optimized by tasks with cleaner objective landscapes (e.g., coarse building boundaries).
+    \item \textbf{Attention Focusing:} Shared optimization penalizes representations that overfit to transient noise on irrelevant WAPs, focusing feature weights on APs that exhibit consistent mutual information across all spatial targets.
+    \item \textbf{Representation Bias:} MTL biases the hypothesis search space toward compact representations that simultaneously explain discrete regional topology and metric spatial geometry.
+\end{enumerate}
+
+\subsection{Mathematical Problem Formulation}
+Let a single preprocessed Wi-Fi fingerprint be represented as a vector $\mathbf{x} = [x_1, x_2, \dots, x_N]^T \in \mathbb{R}^N$, where $N = 520$ denotes the total number of cataloged wireless access points in the environment.
+
+Each observation is paired with three ground-truth spatial targets:
+\begin{itemize}
+    \item \textbf{Building Label ($y_b$):} A discrete multiclass index $y_b \in \{0, 1, 2\}$, representing $B = 3$ campus buildings.
+    \item \textbf{Floor Level ($y_f$):} A discrete multiclass index $y_f \in \{0, 1, 2, 3, 4\}$, representing $F = 5$ vertical levels.
+    \item \textbf{Spatial Coordinates ($\mathbf{y}_c$):} A continuous bivariate vector $\mathbf{y}_c = [x_{\text{long}}, y_{\text{lat}}]^T \in \mathbb{R}^2$ expressed in projected metric UTM coordinates.
+\end{itemize}
+
+\subsubsection{Multi-Objective Loss Formulation}
+In the unified multitask network, the total empirical risk objective is defined as a weighted combination of task-specific loss functions:
+\begin{equation}
+    \mathcal{L}_{\text{total}}(\mathbf{\Theta}) = \lambda_b \mathcal{L}_b(\hat{\mathbf{y}}_b, y_b) + \lambda_f \mathcal{L}_f(\hat{\mathbf{y}}_f, y_f) + \lambda_c \mathcal{L}_c(\hat{\mathbf{y}}_c, \mathbf{y}_c)
+    \label{eq:mtl-loss}
+\end{equation}
+where $\lambda_b, \lambda_f, \lambda_c > 0$ are task-balancing hyperparameters.
+
+The classification objectives are governed by categorical cross-entropy losses:
+\begin{align}
+    \mathcal{L}_b &= -\sum_{k=0}^{B-1} \mathbb{I}(y_b = k) \log \hat{P}(y_b = k \mid \mathbf{x}) \\
+    \mathcal{L}_f &= -\sum_{k=0}^{F-1} \mathbb{I}(y_f = k) \log \hat{P}(y_f = k \mid \mathbf{x})
+\end{align}
+For coordinate regression, the loss is computed as the Mean Squared Error (MSE) over normalized metric coordinates:
+\begin{equation}
+    \mathcal{L}_c = \frac{1}{2} \|\hat{\mathbf{y}}_c - \mathbf{y}_c\|_2^2 = \frac{1}{2} \left[ (\hat{x}_{\text{long}} - x_{\text{long}})^2 + (\hat{y}_{\text{lat}} - y_{\text{lat}})^2 \right]
+\end{equation}
+
+\subsubsection{Loss Balancing and Gradient Harmony}
+A central theoretical challenge in multitask learning is loss-scale disparity~\cite{chen2018gradnorm, ruder2017overview}. Categorical cross-entropy values typically range in magnitude from $0.1$ to $2.0$. If coordinates are evaluated in unnormalized raw metres ($x \sim 10^5\text{ m}$ in UTM projection), coordinate regression gradients dwarf classification gradients by multiple orders of magnitude, causing severe negative transfer and model collapse. To guarantee balanced optimization, coordinates must be normalized (via min-max or z-score standard scaling), and task weights ($\lambda_b, \lambda_f, \lambda_c$) must be calibrated to ensure balanced gradient norms across shared encoder layers.
+
+\subsection{Comparative Summary of Existing Approaches}
+Table~\ref{tab:lit-matrix} provides a structured comparison of representative Wi-Fi indoor positioning methodologies in the literature, positioning our proposed multitask approach against prior works.
+
+\begin{table*}[!t]
+\centering
+\caption{Systematic Comparison of Wi-Fi Positioning Methodologies in Prior Literature}
+\label{tab:lit-matrix}
+\begin{tabular}{lp{3.4cm}p{2.6cm}p{3.2cm}p{3.8cm}}
+\toprule
+\textbf{Approach / Reference} & \textbf{Prediction Targets} & \textbf{Evaluation Metrics} & \textbf{Key Strengths} & \textbf{Identified Limitations} \\
+\midrule
+$k$-NN / WKNN \newline \cite{torres2014ujiindoorloc, torres2015comprehensive} & 
+Coordinates $(x, y)$, \newline Building, Floor & 
+Mean Positioning Error (m), Accuracy (\%) & 
+Non-parametric; zero training phase; robust empirical baseline. & 
+$\mathcal{O}(M)$ inference time; large memory footprint; no latent feature abstraction. \\
+\midrule
+Random Forest + PCA \newline \cite{salamah2016enhanced} & 
+Room / Zone Classification & 
+Classification Accuracy (\%), Execution Time & 
+Robust to RSSI noise; PCA reduces feature dimensionality by 70\%. & 
+Evaluated on private dataset; targets discrete zones only; no continuous regression. \\
+\midrule
+Stacked Autoencoders + MLP \newline \cite{nowicki2017low} & 
+Building, Floor & 
+Classification Hit Rate (\%) & 
+Unsupervised feature pretraining; highly accurate topological prediction. & 
+Does not predict continuous $(x, y)$ coordinates; lacks metric localization. \\
+\midrule
+Hierarchical Deep Neural Net \newline \cite{kim2018scalable} & 
+Building $\to$ Floor $\to$ \newline Coordinates $(x, y)$ & 
+Mean Positioning Error (m), Accuracy (\%) & 
+Scalable modular architecture; separates coarse from fine prediction. & 
+Cascading pipeline propagates early classification errors to coordinate regression. \\
+\midrule
+1D/2D CNN (CNNLoc) \newline \cite{song2019cnnloc} & 
+Floor, Coordinates $(x, y)$ & 
+Mean Positioning Error (m), Cumulative Error CDF & 
+Convolutional filters capture local spatial correlations across AP channels. & 
+Separate models for floor and coordinates; does not exploit joint MTL regularization. \\
+\midrule
+\textbf{Proposed Multitask Net} \newline (Our Investigation) & 
+\textbf{Simultaneous Building, \newline Floor, and Coordinates} & 
+\textbf{Accuracy (\%), MPE (m), \newline CDF Percentiles, IPIN Error} & 
+\textbf{Shared latent representation; inductive transfer; single-pass multi-target inference.} & 
+\textbf{Requires careful multi-objective loss balancing to prevent negative transfer.} \\
+\bottomrule
+\end{tabular}
+\end{table*}

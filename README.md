@@ -12,13 +12,15 @@ indoor-wifi-positioning/
 ├── models/                    # Saved model weights and checkpoints
 ├── notebooks/                 # Exploratory data analysis and experimental notebooks
 ├── presentation/              # Presentation slides and visual assets
-├── report/                    # Project report (LaTeX / IEEEtran)
+├── report/                    # Project report (LaTeX / IEEEtran) & evaluation summaries
 │   ├── figures/               # Report figures
+│   ├── model_evaluation/      # Consolidated model comparison tables and evaluation reports
 │   ├── sections/              # Modular LaTeX sections
 │   │   ├── dataset_eda.tex
 │   │   ├── feature_engineering.tex
 │   │   ├── introduction.tex
-│   │   └── related_work.tex
+│   │   ├── related_work.tex
+│   │   └── traditional_ml.tex
 │   ├── main.tex               # Master LaTeX document
 │   └── references.bib         # Verified BibTeX references
 ├── research/                  # Member 1 Research & Literature Review

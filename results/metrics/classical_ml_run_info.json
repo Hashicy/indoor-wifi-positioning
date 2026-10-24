@@ -1,0 +1,23 @@
+{
+  "random_seed": 42,
+  "train_rows": 19937,
+  "validation_rows": 1111,
+  "n_features": 930,
+  "preprocessing_config": {
+    "impute": true,
+    "indicators": true,
+    "aggregates": false,
+    "scale": false
+  },
+  "xgboost_available": true,
+  "evaluated_models": [
+    "Dummy Baseline (Mode/Median)",
+    "Random Forest",
+    "Extra Trees Regressor",
+    "KNN (k=5, distance-weighted)",
+    "XGBoost"
+  ],
+  "best_regression_model": "Random Forest",
+  "best_mean_error_m": 12.276734819839538,
+  "best_median_error_m": 8.003741172985709
+}

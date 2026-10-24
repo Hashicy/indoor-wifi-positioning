@@ -43,6 +43,8 @@ plt.rcParams["axes.spines.right"] = False
 print("Loading data...")
 train_df = load_train()
 val_df   = load_validation()
+# Note: duplicate removal and empty-scan filtering are applied inside
+# prepare_features() as part of the preprocessing pipeline.
 print(f"  Train: {train_df.shape}, Validation: {val_df.shape}")
 
 # ── Feature dictionary ───────────────────────────────────────────────────────

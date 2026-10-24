@@ -316,6 +316,17 @@ def prepare_features(
     if config is None:
         config = ABLATION_CONFIGS["full_scaled"]
 
+    # ── Preprocessing step 0: clean the training set ─────────────────────────────────
+    # Remove exact duplicate rows: duplicates risk the same scan appearing in
+    # both halves of a CV split, inflating held-out metrics.
+    # Remove empty scans (0 APs detected): they carry no positioning signal and
+    # add pure noise to model fitting.
+    # Only the training set is cleaned; the validation set is left untouched.
+    # Indices are reset so downstream iloc-based operations stay consistent.
+    train_df = train_df.drop_duplicates().reset_index(drop=True)
+    _detected = (train_df[wap_cols] != DEFAULT_MISSING_SENTINEL).any(axis=1)
+    train_df = train_df[_detected].reset_index(drop=True)
+
     # Separate
     X_train_raw = train_df[wap_cols].copy()
     X_val_raw   = val_df[wap_cols].copy()

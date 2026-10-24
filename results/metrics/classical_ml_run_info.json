@@ -1,6 +1,7 @@
 {
   "random_seed": 42,
-  "train_rows": 19937,
+  "train_rows_raw": 19937,
+  "train_rows_cleaned": 19227,
   "validation_rows": 1111,
   "n_features": 930,
   "preprocessing_config": {
@@ -18,6 +19,6 @@
     "XGBoost"
   ],
   "best_regression_model": "Random Forest",
-  "best_mean_error_m": 12.276734819839538,
-  "best_median_error_m": 8.003741172985709
+  "best_mean_error_m": 12.30228834955317,
+  "best_median_error_m": 8.148081326083414
 }

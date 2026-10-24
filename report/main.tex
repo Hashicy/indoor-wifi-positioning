@@ -1,39 +1,733 @@
+% ========================================================================
+% Indoor Wi-Fi Positioning -- IEEE Conference Style Project Report
+% Complete, self-contained document (bibliography is embedded, so no
+% references.bib / BibTeX run is needed). Compile with:
+%     pdflatex report.tex   (run twice)
+% ========================================================================
 \documentclass[conference]{IEEEtran}
+
+% -- Packages ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{graphicx}
-\usepackage{amsmath}
+\usepackage{amsmath,amssymb}
 \usepackage{booktabs}
-
-\usepackage{amssymb}
+\usepackage{array}
+\usepackage{xcolor}
 \usepackage{cite}
+\usepackage{balance}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage[hidelinks,breaklinks]{hyperref}  % keep hyperref last-ish
 \usepackage{url}
+\def\UrlBreaks{\do\/\do-\do.\do_}
 
-% look for figures in report/figures/ first, then in results/figures/
+% Look for figures in report/figures/ first, then in results/figures/
 \graphicspath{{figures/}{../results/figures/}}
 
-\title{Indoor Positioning via Signal Strength Features and Deep Multitask Learning}
-\author{Team Members}
+% Avoid bad breaks in IEEE two-column layout
+\hyphenation{fin-ger-print fin-ger-prints lo-cal-i-za-tion}
 
+% TikZ styles for the pipeline figure
+\tikzset{
+  blk/.style={draw=black!70, rounded corners=2pt, minimum height=10mm,
+              minimum width=21mm, text width=19mm, align=center,
+              font=\scriptsize, fill=blue!7},
+  out/.style={blk, fill=green!10},
+  arr/.style={-{Stealth[length=2mm]}, thick, black!70}
+}
+
+% -- Title & Authors -----------------------------------------------------
+\title{Indoor Positioning via Wi-Fi Signal Strength Features and Classical Machine Learning}
+
+\author{
+  \IEEEauthorblockN{Team T076 --- Indoor Wi-Fi Positioning Project}
+  \IEEEauthorblockA{Department of Computer Science\\
+    University Project Report}
+}
+
+% ======================================================================
 \begin{document}
 \maketitle
 
+% -- Abstract --------------------------------------------------------------
 \begin{abstract}
-TODO
+Accurate indoor positioning remains a critical challenge for location-based services where satellite-based solutions such as GPS are unreliable.
+This paper investigates Wi-Fi fingerprint-based indoor localization using the publicly available UJIIndoorLoc benchmark, which comprises over 21{,}000 received signal strength indicator (RSSI) scans from 520 wireless access points (WAPs) across three campus buildings and five floors.
+We present a systematic pipeline encompassing exploratory data analysis, principled preprocessing with sentinel-aware imputation and engineered aggregate features, and a comprehensive evaluation of classical machine learning baselines: $k$-Nearest Neighbours (KNN), Random Forest, Extra Trees, and XGBoost.
+An ablation study quantifies the contribution of each preprocessing stage.
+The best overall model, a Random Forest with 200 trees, achieves 99.7\% building accuracy, 89.9\% floor accuracy, and a median positioning error of 8.15\,m on the benchmark validation set.
+These results show that well-engineered RSSI features combined with tree-based ensembles form a strong baseline for multi-building, multi-floor indoor localization.
 \end{abstract}
 
-\section{Introduction}
-\input{sections/introduction}
-\section{Related Work}
-\input{sections/related_work}
-\section{Dataset and Exploratory Analysis}
-\input{sections/dataset_eda}
-\section{Feature Engineering and Preprocessing}
-\input{sections/feature_engineering}
-\section{Methodology and Traditional Machine Learning Baselines}
-\input{sections/traditional_ml}
-\section{Deep Multitask Learning}
-% \input{sections/deep_learning}
-\section{Conclusion}
+\begin{IEEEkeywords}
+Indoor positioning, Wi-Fi fingerprinting, RSSI, Random Forest, XGBoost, $k$-nearest neighbours, UJIIndoorLoc
+\end{IEEEkeywords}
 
-\bibliographystyle{IEEEtran}
-\bibliography{references}
+% ======================================================================
+% SECTION I -- INTRODUCTION
+% ======================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+\IEEEPARstart{I}{ndoor} positioning is an essential enabler for navigation, asset tracking, emergency response, and context-aware services in environments where Global Navigation Satellite Systems (GNSS) cannot provide reliable coverage~\cite{feng2022survey,zafari2019survey}.
+Among the approaches explored, including Bluetooth Low Energy beacons, Ultra-Wideband ranging, and inertial dead reckoning~\cite{davidson2017survey}, Wi-Fi fingerprinting remains the most practically attractive because it exploits existing wireless infrastructure without additional hardware deployment~\cite{he2016wifi,torres2014ujiindoorloc}.
+
+The core idea of Wi-Fi fingerprinting is straightforward: the RSSI vector observed at a location forms a spatial ``fingerprint'' shaped by path loss, multi-path propagation, and structural attenuation~\cite{bahl2000radar}.
+A supervised learning model trained on a database of labelled fingerprints can then predict the location of a new observation.
+
+\subsection{Research Objectives}
+
+This work pursues the following objectives:
+\begin{enumerate}
+  \item \textbf{Dataset understanding:} perform a rigorous exploratory analysis of the UJIIndoorLoc dataset~\cite{uci_ujiindoorloc} to quantify class balance, signal characteristics, and train--validation distributional shift.
+  \item \textbf{Feature engineering:} design a preprocessing pipeline that converts the raw 520-dimensional RSSI vector into a richer feature space through sentinel-aware imputation, binary missingness indicators, and engineered aggregate features (Section~\ref{sec:features}).
+  \item \textbf{Classical ML baselines:} implement and tune KNN~\cite{cover1967nearest}, Random Forest~\cite{breiman2001random}, Extra Trees~\cite{geurts2006extremely}, and XGBoost~\cite{chen2016xgboost} for joint building/floor classification and coordinate regression (Section~\ref{sec:methodology}).
+  \item \textbf{Comprehensive evaluation:} compare all models on building accuracy, floor accuracy, joint accuracy, and mean, median, and 90th-percentile Euclidean positioning error, with building-wise and floor-wise breakdowns (Section~\ref{sec:evaluation}).
+\end{enumerate}
+
+\subsection{Paper Organisation}
+
+The remainder of this paper is organised as follows.
+Section~\ref{sec:related} reviews related work.
+Section~\ref{sec:dataset} describes the UJIIndoorLoc dataset and our exploratory analysis.
+Section~\ref{sec:features} details the preprocessing and feature engineering pipeline.
+Section~\ref{sec:methodology} presents the classical ML methodology and hyperparameter tuning.
+Section~\ref{sec:evaluation} reports the experimental results.
+Section~\ref{sec:conclusion} concludes the paper and outlines future directions.
+
+% ======================================================================
+% SECTION II -- RELATED WORK
+% ======================================================================
+\section{Related Work}
+\label{sec:related}
+
+Wi-Fi fingerprint-based indoor positioning has been studied extensively since the seminal RADAR system~\cite{bahl2000radar}; recent surveys are given in~\cite{he2016wifi,zafari2019survey,feng2022survey}.
+Torres-Sospedra et~al.~\cite{torres2014ujiindoorloc} introduced the UJIIndoorLoc benchmark and reported baseline results using $k$-nearest neighbours.
+Their subsequent analysis~\cite{torres2015comprehensive} evaluated 51 combinations of distance and similarity measures and concluded that Manhattan-type distances with a small $k$ were effective for fingerprinting.
+
+Salamah et~al.~\cite{salamah2016enhanced} applied machine learning techniques, including ensemble methods, to Wi-Fi indoor positioning and reported gains over basic KNN.
+Random Forests~\cite{breiman2001random} and Extremely Randomized Trees~\cite{geurts2006extremely} form the theoretical foundation for the tree-based ensembles evaluated here, while XGBoost~\cite{chen2016xgboost} has become a default baseline for structured-data problems.
+
+On the deep learning front, Nowicki and Wietrzykowski~\cite{nowicki2017low} proposed stacked autoencoders for dimensionality reduction followed by a DNN classifier, Kim et~al.~\cite{kim2018scalable} designed a scalable DNN for multi-building, multi-floor localization, and Song et~al.~\cite{song2019cnnloc} applied convolutional networks to reshaped RSSI data.
+Multitask learning~\cite{caruana1997multitask,ruder2017overview} motivates jointly predicting building, floor, and coordinates in a shared architecture, and GradNorm~\cite{chen2018gradnorm} addresses the task-balancing challenge.
+Table~\ref{tab:related} summarises these approaches.
+
+\begin{table}[!t]
+\centering
+\caption{Summary of Representative Related Approaches}
+\label{tab:related}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}p{2.3cm}p{4.3cm}c@{}}
+\toprule
+\textbf{Approach} & \textbf{Core idea} & \textbf{Ref.} \\
+\midrule
+RADAR            & Signal-strength fingerprint matching by nearest neighbour & \cite{bahl2000radar} \\
+KNN variants     & Systematic study of distance/similarity measures          & \cite{torres2015comprehensive} \\
+Ensemble ML      & Tree ensembles and boosting for positioning               & \cite{salamah2016enhanced} \\
+Stacked AE + DNN & Unsupervised compression, then classification             & \cite{nowicki2017low} \\
+Scalable DNN     & Joint building/floor/location network                     & \cite{kim2018scalable} \\
+CNN              & Convolutional features from RSSI maps                     & \cite{song2019cnnloc} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Our work contributes a thorough classical ML baseline with careful feature engineering and ablation analysis, establishing a performance reference that deep learning approaches should surpass to justify their additional complexity.
+
+% ======================================================================
+% SECTION III -- DATASET AND EXPLORATORY ANALYSIS
+% ======================================================================
+\section{Dataset and Exploratory Analysis}
+\label{sec:dataset}
+
+\subsection{The UJIIndoorLoc Dataset}
+
+The UJIIndoorLoc dataset~\cite{torres2014ujiindoorloc,uci_ujiindoorloc} was collected at the Jaume~I University campus in Castell\'o, Spain.
+It covers three multi-storey buildings with a total of 13 building--floor combinations.
+Each sample is a Wi-Fi fingerprint consisting of RSSI readings from 520 WAPs, together with metadata (user ID, phone ID, timestamp) and ground-truth labels (building ID, floor number, UTM longitude, and UTM latitude).
+
+Table~\ref{tab:dataset_summary} summarises the key statistics of the training and validation splits.
+The training set comprises 19{,}937 fingerprints collected by 18 users with 16 phone models, while the validation set contains 1{,}111 fingerprints from a single user.
+This intentional design tests generalisation across users and across time.
+
+\begin{table}[!t]
+\centering
+\caption{UJIIndoorLoc Dataset Summary Statistics}
+\label{tab:dataset_summary}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Attribute} & \textbf{Train} & \textbf{Validation} \\
+\midrule
+Rows                                & 19{,}937 & 1{,}111 \\
+Columns                             & 529      & 529     \\
+Buildings                           & 3        & 3       \\
+Floors                              & 5        & 5       \\
+Building--floor pairs               & 13       & 13      \\
+Users                               & 18       & 1       \\
+Phone models                        & 16       & 11      \\
+\% signal values = 100 (undetected) & 96.54    & 96.83   \\
+Mean APs detected per scan          & 18.0     & 16.5    \\
+Exact duplicate rows                & 637      & 0       \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Class Distribution}
+
+The classification targets exhibit moderate imbalance.
+Building~0 contains the most samples (9{,}116 training scans, 47.2\% of the data), and the 13 building--floor classes have an imbalance ratio of 3.72:1 (largest to smallest class).
+Fig.~\ref{fig:class_distribution} illustrates the joint building--floor class distribution.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_building_floor_classes.png}
+\caption{Distribution of training samples across the 13 building--floor classes. Buildings~0 and~1 contain four floors each, and Building~2 contains five.}
+\label{fig:class_distribution}
+\end{figure}
+
+\subsection{Spatial Coverage}
+
+Fig.~\ref{fig:spatial_map} shows the UTM coordinate coverage of each building.
+The three buildings are well separated in longitude, which explains the near-perfect building classification accuracy.
+Within each building, the coordinate spread motivates continuous regression.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_map_by_building.png}
+\caption{Spatial distribution of Wi-Fi fingerprint collection points across the three campus buildings, in UTM coordinates.}
+\label{fig:spatial_map}
+\end{figure}
+
+\subsection{RSSI Signal Characteristics}
+
+In UJIIndoorLoc, undetected access points are encoded with the sentinel value 100 rather than a null.
+The vast majority (96.5\%) of the $520 \times 19{,}937$ RSSI matrix entries carry this sentinel, so each scan detects roughly 18 of the 520 WAPs on average.
+Detected signals span $-104$ to $0$\,dBm with a mean of $-78.6$\,dBm and a standard deviation of 12.7\,dBm (Fig.~\ref{fig:rssi_distribution}).
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eda_rssi_distribution.png}
+\caption{Distribution of detected RSSI values (excluding the sentinel value 100) for the training and validation sets.}
+\label{fig:rssi_distribution}
+\end{figure}
+
+\subsection{Device Heterogeneity and Train--Validation Shift}
+
+The 16 phone models in the training set are highly heterogeneous: the median number of APs detected per scan ranges from 10 to 32, and the median signal strength varies by over 10\,dBm across devices (Fig.~\ref{fig:phone_differences}).
+A Kolmogorov--Smirnov test confirms a statistically significant distributional shift between the training and validation sets ($p < 10^{-6}$) for both the number of APs per scan and the strongest signal per scan, underscoring the need for robust preprocessing.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\columnwidth]{eda_phone_differences.png}
+\caption{Variation in detected APs and median signal strength across phone models.}
+\label{fig:phone_differences}
+\end{figure}
+
+% ======================================================================
+% SECTION IV -- FEATURE ENGINEERING AND PREPROCESSING
+% ======================================================================
+\section{Feature Engineering and Preprocessing}
+\label{sec:features}
+
+The preprocessing pipeline consists of the stages shown in Fig.~\ref{fig:pipeline}, each validated through the ablation experiments of Section~\ref{subsec:ablation}.
+
+\begin{figure*}[!t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=4mm]
+  \node[blk] (a) {Raw RSSI\\(520 WAPs)};
+  \node[blk, right=of a] (b) {Data cleaning\\(duplicates, empty scans)};
+  \node[blk, right=of b] (c) {Sentinel imputation\\$100 \rightarrow -110$\,dBm};
+  \node[blk, right=of c] (d) {Missingness indicators + aggregates};
+  \node[blk, right=of d] (e) {Standard scaling\\(train-fitted)};
+  \node[blk, right=of e] (f) {KNN, RF, ET, XGBoost};
+  \node[out, right=of f] (g) {Building, floor, $(x,y)$};
+  \foreach \s/\t in {a/b,b/c,c/d,d/e,e/f,f/g} \draw[arr] (\s) -- (\t);
+\end{tikzpicture}}
+\caption{Overview of the proposed preprocessing and prediction pipeline. Scaling parameters are fitted on the training set only.}
+\label{fig:pipeline}
+\end{figure*}
+
+\subsection{Data Cleaning}
+
+We remove 637 exact duplicate rows from the training set and discard 76 scans with zero detected APs, as these carry no discriminative signal information.
+
+\subsection{Sentinel-Aware RSSI Imputation}
+
+The sentinel value 100 is replaced by $-110$\,dBm, a value below the minimum observed RSSI ($-104$\,dBm).
+This preserves the ordinal relationship among signal strengths while providing a consistent ``very weak signal'' level for tree-based models:
+\begin{equation}
+  \text{RSSI}'_i = \begin{cases}
+    \text{RSSI}_i & \text{if } \text{RSSI}_i \neq 100, \\
+    -110          & \text{otherwise.}
+  \end{cases}
+\end{equation}
+
+\subsection{Binary Missingness Indicators}
+
+For each of the 520 WAP columns, we create a binary indicator feature
+\begin{equation}
+  m_i = \mathbb{I}(\text{RSSI}_i = 100).
+\end{equation}
+This provides the model with explicit information about the detection pattern, effectively encoding a ``macro-fingerprint'' that is highly discriminative for building and floor identification.
+
+\subsection{Engineered Aggregate Features}
+
+Five scan-level aggregate features capture the overall signal environment (Table~\ref{tab:feature_dict}).
+Their distributions are visualised in Fig.~\ref{fig:engineered_features}.
+
+\begin{table}[!t]
+\centering
+\caption{Engineered Aggregate Features}
+\label{tab:feature_dict}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}llp{4.2cm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+\texttt{num\_aps}    & count & Number of detected APs \\
+\texttt{max\_rssi}   & dBm   & Strongest detected signal \\
+\texttt{mean\_rssi}  & dBm   & Mean of detected signals \\
+\texttt{std\_rssi}   & dBm   & Std.\ dev.\ of detected signals \\
+\texttt{range\_rssi} & dBm   & Max $-$ min detected signal \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{preproc_engineered_features.png}
+\caption{Distributions of engineered aggregate features coloured by building, showing clear structural discrimination in \texttt{num\_aps} and \texttt{mean\_rssi}.}
+\label{fig:engineered_features}
+\end{figure}
+
+\subsection{Feature Scaling}
+
+All features are standardised to zero mean and unit variance using \texttt{StandardScaler}~\cite{pedregosa2011scikit} fitted on the training set only, which prevents information leakage from the validation set.
+
+\subsection{Final Feature Space}
+
+After removing zero-variance columns, the feature vector comprises 465 imputed RSSI values, 465 binary missingness indicators, and 5 aggregate features, for a total of 935 features.
+
+\subsection{Ablation Study}
+\label{subsec:ablation}
+
+Table~\ref{tab:ablation} and Fig.~\ref{fig:ablation} present the ablation results.
+Replacing the sentinel value 100 by $-110$\,dBm improves floor accuracy from 87.5\% to 91.2\% and reduces the mean positioning error from 13.98\,m to 12.30\,m.
+Adding missingness indicators and aggregate features yields only marginal changes, and scaling has a negligible effect for tree-based models, as expected since trees are invariant to monotonic feature transformations.
+
+\begin{table}[!t]
+\centering
+\caption{Ablation Study: Effect of Each Preprocessing Stage (Random Forest, 200 Trees)}
+\label{tab:ablation}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Configuration} & \textbf{Bldg Acc} & \textbf{Floor Acc} & \textbf{Mean Err (m)} \\
+\midrule
+Raw (sentinel = 100)   & 99.9\% & 87.5\% & 13.98 \\
++ Imputation ($-110$)  & 99.9\% & 91.2\% & 12.30 \\
++ Indicators           & 99.8\% & 90.4\% & 12.21 \\
++ Aggregates           & 99.8\% & 89.7\% & 12.82 \\
++ Scaling (full)       & 99.8\% & 89.6\% & 12.80 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{preproc_ablation_comparison.png}
+\caption{Ablation study comparing five preprocessing configurations on building accuracy, floor accuracy, and mean positioning error.}
+\label{fig:ablation}
+\end{figure}
+
+% ======================================================================
+% SECTION V -- METHODOLOGY
+% ======================================================================
+\section{Methodology}
+\label{sec:methodology}
+
+We frame indoor positioning as three concurrent prediction tasks: (i)~building classification (3 classes), (ii)~floor classification (5 classes), and (iii)~coordinate regression (UTM longitude and latitude in metres).
+
+\subsection{Models}
+
+\subsubsection{Dummy Baseline}
+Predicts the most frequent building/floor and the median coordinates, establishing the minimum performance any useful model must exceed.
+
+\subsubsection{$k$-Nearest Neighbours (KNN)}
+A distance-weighted KNN classifier/regressor~\cite{cover1967nearest}.
+Hyperparameters are tuned by 5-fold cross-validation on the training set (Table~\ref{tab:knn_tuning}).
+
+\begin{table}[!t]
+\centering
+\caption{KNN Hyperparameter Tuning (5-Fold CV on Training Set)}
+\label{tab:knn_tuning}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$k$ & \textbf{Weights} & \textbf{CV Error (m)} & \textbf{CV Floor Acc} \\
+\midrule
+1  & uniform  & 10.75 & 90.1\% \\
+3  & distance & 9.91  & 89.7\% \\
+5  & distance & 9.67  & 89.6\% \\
+9  & distance & 9.51  & 89.6\% \\
+15 & distance & 9.50  & 89.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Random Forest}
+An ensemble of decision trees trained on bootstrap samples with random feature subsets~\cite{breiman2001random}.
+The search explores \texttt{n\_estimators} $\in \{50, 100, 200\}$ and \texttt{min\_samples\_leaf} $\in \{1, 2, 5\}$ (Table~\ref{tab:rf_tuning}).
+The best configuration (200 trees, \texttt{min\_samples\_leaf} = 1) achieves a cross-validated mean error of 9.65\,m.
+
+\begin{table}[!t]
+\centering
+\caption{Random Forest Hyperparameter Tuning (5-Fold CV)}
+\label{tab:rf_tuning}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Trees} & \textbf{Min Leaf} & \textbf{CV Error (m)} & \textbf{CV Floor Acc} \\
+\midrule
+50  & 1 & 9.75  & 97.2\% \\
+100 & 1 & 9.68  & 97.4\% \\
+200 & 1 & \textbf{9.65}  & \textbf{97.4\%} \\
+200 & 2 & 9.80  & 97.0\% \\
+200 & 5 & 10.41 & 96.1\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Extra Trees}
+Similar to Random Forest but with randomised split thresholds~\cite{geurts2006extremely}, which adds diversity and often lowers variance.
+
+\subsubsection{XGBoost}
+A gradient-boosted tree ensemble~\cite{chen2016xgboost}.
+Separate models are trained for building classification, floor classification, and coordinate regression.
+
+\subsection{Training Protocol}
+
+All models are trained on the 19{,}937-sample training set and evaluated on the 1{,}111-sample validation set, following the official UJIIndoorLoc protocol~\cite{torres2014ujiindoorloc}.
+This simulates a realistic deployment in which the system is tested on data from an unseen user at a later time.
+All random seeds are fixed at 42 for reproducibility.
+
+\subsection{Feature Importance}
+
+Fig.~\ref{fig:feature_importance} shows the top features ranked by Gini importance from the Random Forest building and floor classifiers.
+WAP RSSI features dominate, but the engineered aggregates (\texttt{num\_aps}, \texttt{mean\_rssi}) also rank highly, confirming their discriminative value.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{classical_feature_importance.png}
+\caption{Top features by Gini importance for the Random Forest building and floor classifiers.}
+\label{fig:feature_importance}
+\end{figure}
+
+% ======================================================================
+% SECTION VI -- EVALUATION AND RESULTS
+% ======================================================================
+\section{Experimental Results}
+\label{sec:evaluation}
+
+\subsection{Evaluation Metrics}
+
+Models are evaluated on the following metrics.
+\begin{itemize}
+  \item \textbf{Building and floor classification:} accuracy and macro-F1.
+  \item \textbf{Joint building+floor accuracy:} both labels predicted correctly.
+  \item \textbf{Coordinate regression:} mean absolute error (MAE), mean/median/90th-percentile Euclidean positioning error, RMSE, and $R^2$.
+\end{itemize}
+
+\subsection{Overall Model Comparison}
+
+Table~\ref{tab:master_comparison} presents the comparison across all models.
+Random Forest and Extra Trees achieve identical classification performance (99.7\% building, 89.9\% floor), while Random Forest has the best overall balance with the highest $R^2$ (0.978).
+XGBoost excels at building classification (99.8\%) but underperforms on coordinate regression (22.70\,m mean error).
+
+\begin{table*}[!t]
+\centering
+\caption{Comprehensive Model Comparison on the UJIIndoorLoc Validation Set}
+\label{tab:master_comparison}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lccccccccc@{}}
+\toprule
+\textbf{Model} & \textbf{Bldg Acc} & \textbf{Bldg F1} & \textbf{Floor Acc} & \textbf{Floor F1} & \textbf{Joint Acc} & \textbf{Mean Err} & \textbf{Med Err} & \textbf{P90 Err} & $\mathbf{R^2}$ \\
+ & & & & & & \textbf{(m)} & \textbf{(m)} & \textbf{(m)} & \\
+\midrule
+Random Forest      & 99.7\% & 0.997 & 89.9\% & 0.874 & 89.7\% & 12.30 & 8.15 & 29.55 & 0.978 \\
+Extra Trees        & 99.7\% & 0.997 & 89.9\% & 0.874 & 89.7\% & 12.46 & \textbf{7.66} & \textbf{25.68} & 0.971 \\
+XGBoost            & \textbf{99.8\%} & \textbf{0.998} & 89.6\% & \textbf{0.892} & 89.6\% & 22.70 & 15.17 & 47.77 & 0.940 \\
+KNN ($k$=5, dist.) & 98.9\% & 0.988 & 75.4\% & 0.748 & 75.2\% & 13.68 & 8.20 & 29.21 & 0.964 \\
+Dummy Baseline     & 24.1\% & 0.130 & 15.5\% & 0.054 & 3.6\%  & 161.19 & 142.34 & 263.48 & $-0.634$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Classification Results}
+
+Table~\ref{tab:classification_detail} reports detailed classification metrics.
+Building classification is near-perfect for all non-baseline models, reflecting the strong spatial separation between buildings.
+Floor classification is more challenging: Random Forest and Extra Trees reach 89.9\% accuracy (macro-F1 = 0.874), whereas KNN drops to 75.4\% owing to its sensitivity to the high-dimensional feature space.
+XGBoost achieves the best floor macro-F1 (0.892) despite slightly lower accuracy, indicating more balanced per-floor performance.
+
+\begin{table}[!t]
+\centering
+\caption{Detailed Classification Results (\%, F1 as Fraction)}
+\label{tab:classification_detail}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Target} & \textbf{Acc} & \textbf{Prec} & \textbf{Rec} & \textbf{F1} \\
+\midrule
+Random Forest & Building & 99.7 & 99.8 & 99.7 & 0.997 \\
+XGBoost       & Building & 99.8 & 99.8 & 99.9 & 0.998 \\
+KNN           & Building & 98.9 & 98.7 & 99.0 & 0.988 \\
+\midrule
+Random Forest & Floor    & 89.9 & 90.8 & 85.8 & 0.874 \\
+XGBoost       & Floor    & 89.6 & 90.8 & 88.5 & 0.892 \\
+KNN           & Floor    & 75.4 & 77.2 & 75.0 & 0.748 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Confusion Matrices}
+
+Figs.~\ref{fig:confusion_building} and~\ref{fig:confusion_floor} show the confusion matrices for building and floor classification.
+Building confusion is minimal (1--3 misclassifications for the best models).
+Floor confusion is concentrated between adjacent floors, particularly Floors~1--2 and~2--3, consistent with the physics of inter-floor signal attenuation.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_building_confusion_matrices.png}
+\caption{Building classification confusion matrices for all models.}
+\label{fig:confusion_building}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_floor_confusion_matrices.png}
+\caption{Floor classification confusion matrices. Adjacent-floor confusion dominates the off-diagonal entries.}
+\label{fig:confusion_floor}
+\end{figure}
+
+\subsection{Coordinate Regression Results}
+
+Table~\ref{tab:regression_detail} presents the coordinate regression metrics.
+Random Forest achieves the lowest MAE (7.92\,m) and mean error, while Extra Trees obtains the lowest median error (7.66\,m) and 90th-percentile error (25.68\,m), indicating a tighter error distribution with fewer outliers.
+
+\begin{table}[!t]
+\centering
+\caption{Coordinate Regression Results}
+\label{tab:regression_detail}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{MAE (m)} & \textbf{Mean Err (m)} & \textbf{Med Err (m)} & \textbf{P90 Err (m)} \\
+\midrule
+Random Forest & 7.92  & 12.30 & 8.15  & 29.55 \\
+Extra Trees   & 8.01  & 12.46 & \textbf{7.66} & \textbf{25.68} \\
+KNN           & 8.82  & 13.68 & 8.20  & 29.21 \\
+XGBoost       & 14.70 & 22.70 & 15.17 & 47.77 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Actual vs.\ Predicted Coordinates}
+
+Fig.~\ref{fig:actual_vs_predicted} plots actual versus predicted coordinates for the best-performing models.
+Predictions closely track the ground truth, with larger errors at building boundaries and in sparsely sampled areas.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_actual_vs_predicted.png}
+\caption{Actual versus predicted UTM coordinates for Random Forest and Extra Trees.}
+\label{fig:actual_vs_predicted}
+\end{figure}
+
+\subsection{Spatial Error Analysis}
+
+Fig.~\ref{fig:spatial_errors} visualises the spatial distribution of positioning errors.
+Errors are lowest in Building~0 (mean 8.48\,m for Random Forest), where training data density is highest, and largest in Building~2 (mean 17.46\,m).
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_spatial_error_maps.png}
+\caption{Spatial distribution of Euclidean positioning errors, coloured by error magnitude.}
+\label{fig:spatial_errors}
+\end{figure}
+
+\subsection{Building-Wise Error Breakdown}
+
+Table~\ref{tab:building_breakdown} breaks down Random Forest performance by building.
+Building~0 achieves the best results on all metrics, consistent with its larger training sample size and denser spatial coverage.
+
+\begin{table}[!t]
+\centering
+\caption{Random Forest Performance Breakdown by Building}
+\label{tab:building_breakdown}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Building} & \textbf{Floor Acc} & \textbf{Mean (m)} & \textbf{Median (m)} & \textbf{P90 (m)} \\
+\midrule
+Building 0 & 96.8\% & 8.48  & 5.31  & 18.82 \\
+Building 1 & 80.5\% & 14.47 & 10.12 & 35.69 \\
+Building 2 & 86.9\% & 17.46 & 11.56 & 36.95 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Error Distribution and CDF}
+
+Fig.~\ref{fig:error_distribution} shows the positioning error distribution for all models.
+The Random Forest and Extra Trees distributions are heavily right-skewed, with most errors below 15\,m and a long tail extending to 30--40\,m.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_error_distributions.png}
+\caption{Positioning error distribution (histogram and density) for each model.}
+\label{fig:error_distribution}
+\end{figure}
+
+Fig.~\ref{fig:error_cdf} presents the cumulative distribution function (CDF) of positioning errors.
+At the 10\,m threshold, Random Forest resolves 62\% of samples and Extra Trees 64\%.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_error_cdf.png}
+\caption{Cumulative distribution of Euclidean positioning error. Steeper curves indicate better localisation accuracy.}
+\label{fig:error_cdf}
+\end{figure}
+
+\subsection{Model Comparison Summary}
+
+Fig.~\ref{fig:model_comparison} summarises all models across key metrics.
+Random Forest and Extra Trees dominate on both classification and regression, while XGBoost excels at classification but struggles with coordinate regression.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_model_comparison.png}
+\caption{Multi-metric model comparison summarising building accuracy, floor accuracy, and positioning error.}
+\label{fig:model_comparison}
+\end{figure}
+
+\subsection{Floor-Wise Error Analysis}
+
+Fig.~\ref{fig:floor_error} presents the positioning error by floor.
+Floors~0 and~3 tend to have higher errors, possibly owing to edge effects and proximity to building entrances where signal conditions change rapidly.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_error_by_floor.png}
+\caption{Mean positioning error by floor for each model.}
+\label{fig:floor_error}
+\end{figure}
+
+\subsection{Failure Case Analysis}
+
+Fig.~\ref{fig:failure_cases} maps the worst-case predictions (top 10\% of errors).
+Large errors concentrate at building boundaries and along corridors where the fingerprint changes rapidly over short distances.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eval_failure_cases_spatial.png}
+\caption{Spatial distribution of failure cases (top 10\% positioning errors). Arrows connect predicted to actual locations.}
+\label{fig:failure_cases}
+\end{figure}
+
+% ======================================================================
+% SECTION VII -- CONCLUSION
+% ======================================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+This paper presented a systematic investigation of Wi-Fi fingerprint-based indoor positioning on the UJIIndoorLoc benchmark.
+The principal findings are as follows.
+\begin{enumerate}
+  \item \textbf{Preprocessing matters:} sentinel-aware imputation ($100 \to -110$\,dBm) alone improves floor accuracy by 3.7 percentage points and reduces the mean positioning error by 1.68\,m.
+  \item \textbf{Classical ML is competitive:} Random Forest with 200 trees achieves 99.7\% building accuracy, 89.9\% floor accuracy, and 8.15\,m median positioning error, a strong reference point for deep learning approaches~\cite{nowicki2017low,kim2018scalable,song2019cnnloc}.
+  \item \textbf{Extra Trees gives tighter error bounds:} with identical classification accuracy, it obtains the lowest median (7.66\,m) and 90th-percentile (25.68\,m) errors.
+  \item \textbf{XGBoost excels at classification, not regression:} it attains the best building F1 (0.998) and floor F1 (0.892) but roughly twice the positioning error of Random Forest.
+  \item \textbf{Building-dependent performance:} all models perform best in Building~0 (largest training set) and worst in Buildings~1 and~2, suggesting that data augmentation or building-specific models could help.
+\end{enumerate}
+
+\subsection{Future Directions}
+
+Several directions remain open:
+\begin{itemize}
+  \item \textbf{Deep multitask learning:} a shared DNN with hard parameter sharing~\cite{caruana1997multitask,ruder2017overview} could exploit cross-task regularisation.
+  \item \textbf{Stacked autoencoders:} unsupervised pretraining to learn a compressed RSSI representation~\cite{nowicki2017low}.
+  \item \textbf{Adaptive loss balancing:} techniques such as GradNorm~\cite{chen2018gradnorm} could balance classification and regression losses automatically.
+  \item \textbf{Data augmentation:} synthetic fingerprint generation through signal perturbation or generative models to address under-represented building--floor pairs.
+  \item \textbf{Online adaptation:} incremental model updates as new crowdsourced fingerprints become available.
+\end{itemize}
+
+% -- References (embedded, IEEE style) -------------------------------------
+\balance
+\begin{thebibliography}{99}
+
+\bibitem{feng2022survey}
+X.~Feng, K.~A. Nguyen, and Z.~Luo, ``A survey of deep learning approaches for WiFi-based indoor positioning,'' \emph{J. Inf. Telecommun.}, vol.~6, no.~2, pp. 163--216, 2022.
+
+\bibitem{zafari2019survey}
+F.~Zafari, A.~Gkelias, and K.~K. Leung, ``A survey of indoor localization systems and technologies,'' \emph{IEEE Commun. Surveys Tuts.}, vol.~21, no.~3, pp. 2568--2599, 3rd Quart., 2019.
+
+\bibitem{davidson2017survey}
+P.~Davidson and R.~Pich\'e, ``A survey of selected indoor positioning methods for smartphones,'' \emph{IEEE Commun. Surveys Tuts.}, vol.~19, no.~2, pp. 1347--1370, 2nd Quart., 2017.
+
+\bibitem{he2016wifi}
+S.~He and S.-H.~G. Chan, ``Wi-Fi fingerprint-based indoor positioning: Recent advances and comparisons,'' \emph{IEEE Commun. Surveys Tuts.}, vol.~18, no.~1, pp. 466--490, 1st Quart., 2016.
+
+\bibitem{bahl2000radar}
+P.~Bahl and V.~N. Padmanabhan, ``RADAR: An in-building RF-based user location and tracking system,'' in \emph{Proc. IEEE INFOCOM}, Tel Aviv, Israel, Mar. 2000, pp. 775--784.
+
+\bibitem{torres2014ujiindoorloc}
+J.~Torres-Sospedra \emph{et~al.}, ``UJIIndoorLoc: A new multi-building and multi-floor database for WLAN fingerprint-based indoor localization problems,'' in \emph{Proc. Int. Conf. Indoor Positioning Indoor Navigat. (IPIN)}, Busan, South Korea, Oct. 2014, pp. 261--270.
+
+\bibitem{uci_ujiindoorloc}
+J.~Torres-Sospedra \emph{et~al.}, ``UJIIndoorLoc,'' UCI Machine Learning Repository, 2014. [Online]. Available: \url{https://archive.ics.uci.edu/dataset/310/ujiindoorloc}
+
+\bibitem{torres2015comprehensive}
+J.~Torres-Sospedra, R.~Montoliu, S.~Trilles, \'O.~Belmonte, and J.~Huerta, ``Comprehensive analysis of distance and similarity measures for Wi-Fi fingerprinting indoor positioning systems,'' \emph{Expert Syst. Appl.}, vol.~42, no.~23, pp. 9263--9278, Dec. 2015.
+
+\bibitem{salamah2016enhanced}
+A.~H. Salamah, M.~Tamazin, M.~A. Sharkas, and M.~Khedr, ``An enhanced WiFi indoor localization system based on machine learning,'' in \emph{Proc. Int. Conf. Indoor Positioning Indoor Navigat. (IPIN)}, Alcal\'a de Henares, Spain, Oct. 2016, pp. 1--8.
+
+\bibitem{cover1967nearest}
+T.~Cover and P.~Hart, ``Nearest neighbor pattern classification,'' \emph{IEEE Trans. Inf. Theory}, vol.~IT-13, no.~1, pp. 21--27, Jan. 1967.
+
+\bibitem{breiman2001random}
+L.~Breiman, ``Random forests,'' \emph{Mach. Learn.}, vol.~45, no.~1, pp. 5--32, Oct. 2001.
+
+\bibitem{geurts2006extremely}
+P.~Geurts, D.~Ernst, and L.~Wehenkel, ``Extremely randomized trees,'' \emph{Mach. Learn.}, vol.~63, no.~1, pp. 3--42, Apr. 2006.
+
+\bibitem{chen2016xgboost}
+T.~Chen and C.~Guestrin, ``XGBoost: A scalable tree boosting system,'' in \emph{Proc. 22nd ACM SIGKDD Int. Conf. Knowl. Discovery Data Mining}, San Francisco, CA, USA, Aug. 2016, pp. 785--794.
+
+\bibitem{pedregosa2011scikit}
+F.~Pedregosa \emph{et~al.}, ``Scikit-learn: Machine learning in Python,'' \emph{J. Mach. Learn. Res.}, vol.~12, pp. 2825--2830, Oct. 2011.
+
+\bibitem{nowicki2017low}
+M.~Nowicki and J.~Wietrzykowski, ``Low-effort place recognition with WiFi fingerprints using deep learning,'' in \emph{Automation 2017}, Adv. Intell. Syst. Comput., vol.~550. Cham, Switzerland: Springer, 2017, pp. 575--584.
+
+\bibitem{kim2018scalable}
+K.~S. Kim, S.~Lee, and K.~Huang, ``A scalable deep neural network architecture for multi-building and multi-floor indoor localization based on Wi-Fi fingerprinting,'' \emph{Big Data Anal.}, vol.~3, no.~1, p.~4, Apr. 2018.
+
+\bibitem{song2019cnnloc}
+X.~Song \emph{et~al.}, ``A novel convolutional neural network based indoor localization framework with WiFi fingerprinting,'' \emph{IEEE Access}, vol.~7, pp. 110698--110709, 2019.
+
+\bibitem{caruana1997multitask}
+R.~Caruana, ``Multitask learning,'' \emph{Mach. Learn.}, vol.~28, no.~1, pp. 41--75, Jul. 1997.
+
+\bibitem{ruder2017overview}
+S.~Ruder, ``An overview of multi-task learning in deep neural networks,'' \emph{arXiv:1706.05098}, 2017.
+
+\bibitem{chen2018gradnorm}
+Z.~Chen, V.~Badrinarayanan, C.-Y. Lee, and A.~Rabinovich, ``GradNorm: Gradient normalization for adaptive loss balancing in deep multitask networks,'' in \emph{Proc. 35th Int. Conf. Mach. Learn. (ICML)}, Stockholm, Sweden, Jul. 2018, pp. 794--803.
+
+\end{thebibliography}
+
 \end{document}

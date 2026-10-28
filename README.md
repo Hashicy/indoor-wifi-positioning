@@ -104,12 +104,16 @@ Raw Scans (520 WAPs, +100 sentinels)
 
 ### 1. The Missing-Signal Sentinel Problem ($+100 \to -110\text{ dBm}$)
 - **The Issue:** UJIIndoorLoc encodes undetected access points as $+100$. Genuine RSSI values range from $-104\text{ dBm}$ to $0\text{ dBm}$. Treating $+100$ as numeric energy misleads distance metrics ($k$-NN calculates $\Delta = 140$) and destroys physical monotonicity in decision trees.
-- **The Fix:** Impute $+100 \to -110\text{ dBm}$, which is strictly below the hardware sensitivity limit ($-104\text{ dBm}$), establishing the natural relationship:
-  $$\text{Strong } (-30\text{ dBm}) > \text{Weak } (-85\text{ dBm}) > \text{Noise Floor } (-104\text{ dBm}) > \text{Undetected } (-110\text{ dBm})$$
+- **The Fix:** Impute $+100 \to -110\text{ dBm}$, which is strictly below the hardware sensitivity limit ($-104\text{ dBm}$), establishing the natural physical relationship:
+
+$$
+-30\text{ dBm (Strong)} > -85\text{ dBm (Weak)} > -104\text{ dBm (Noise Floor)} > -110\text{ dBm (Undetected)}
+$$
 
 ### 2. Binary Missingness Indicators
-In indoor radio environments, signal absence is informative physical evidence of thick concrete obstruction. We construct binary flags $\text{WAP}_k\text{\_miss} \in \{0, 1\}$. 
-- **Impact:** Feature importance shows missingness flags account for **$>35\%$ of all node split decisions** in Random Forest.
+In indoor radio environments, signal absence is informative physical evidence of thick concrete obstruction. For each access point, we construct a binary indicator flag `WAP_miss` $\in \{0, 1\}$ (where 1 indicates unobserved, and 0 indicates detected).
+
+- **Impact:** Feature importance analysis revealed that these binary missingness flags account for **over 35% of all internal node split decisions** in Random Forest.
 
 ### 3. Scan-Level Aggregate Features
 Derived from detected APs within each scan:
@@ -137,7 +141,11 @@ Systematic ablation benchmark on the official held-out test set (Random Forest, 
 ### Classical Baselines
 We benchmark four model families representing distinct inductive biases:
 1. **Random Forest ($B=200$ trees):** De-correlated bagging with random subspace projection ($m \approx \sqrt{p}$). Ensemble variance contracts via:
-   $$\text{Var}(\bar{f}(\mathbf{x})) = \rho \sigma^2 + \frac{1 - \rho}{B}\sigma^2$$
+
+$$
+\mathrm{Var}(\bar{f}(\mathbf{x})) = \rho \sigma^2 + \frac{1 - \rho}{B}\sigma^2
+$$
+
 2. **Extra Trees Regressor:** Draws cut-point thresholds uniformly at random within feature ranges, smoothing piecewise-constant regression plateaus.
 3. **Distance-Weighted $k$-NN ($k=5$):** Inverse-distance weighted neighborhood averaging in Euclidean signal space.
 4. **XGBoost (GBDT):** Regularized gradient boosted decision trees with second-order Taylor expansion loss minimization.
@@ -147,7 +155,10 @@ We benchmark four model families representing distinct inductive biases:
 Instead of discretizing buildings into discrete grid cells, metric coordinates $(x, y) \in \mathbb{R}^2$ are modeled via continuous bivariate regression:
 - **Continuous Euclidean Topology:** Metric space is smooth. Grid classification destroys proximity: misclassifying a point into an adjacent cell ($0.5\text{ m}$ away) receives the identical cross-entropy penalty as predicting a cell $300\text{ m}$ away.
 - **Direct Loss Alignment:** Mean Squared Error (MSE) directly minimizes expected squared Euclidean distance:
-  $$\mathcal{L}_{\text{coord}} = \frac{1}{N}\sum_{i=1}^N \left[(x_i - \hat{x}_i)^2 + (y_i - \hat{y}_i)^2\right]$$
+
+$$
+\mathcal{L}_{\mathrm{coord}} = \frac{1}{N}\sum_{i=1}^N \left[(x_i - \hat{x}_i)^2 + (y_i - \hat{y}_i)^2\right]
+$$
 
 ### Deep Multitask Learning (Caruana Inductive Transfer)
 Based on Rich Caruana’s Multitask Learning theory (1997), a shared deep encoder learns joint topological representations:

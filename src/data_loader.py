@@ -11,8 +11,11 @@ Run ``python -m src.data_loader`` from the repository root to check that the
 data files are in place.
 """
  
+import shutil
+import urllib.request
+import zipfile
 from pathlib import Path
- 
+
 import pandas as pd
  
 # ---------------------------------------------------------------------------
@@ -42,17 +45,45 @@ ALL_COLS = WAP_COLS + REGRESSION_TARGETS + ["FLOOR", "BUILDINGID"] + META_COLS
 MISSING_RSSI = 100
  
 # ---------------------------------------------------------------------------
-# Loading
+# Loading & Auto-download
 # ---------------------------------------------------------------------------
+UCI_URL = "https://archive.ics.uci.edu/static/public/310/ujiindoorloc.zip"
 _DOWNLOAD_HINT = (
     "Download the dataset from "
     "https://archive.ics.uci.edu/dataset/310/ujiindoorloc and place "
     "trainingData.csv and validationData.csv directly inside the data/ folder. "
     "See data/README.md."
 )
- 
- 
+
+
+def ensure_dataset(data_dir: Path = DATA_DIR) -> None:
+    """Download and extract raw dataset from UCI if CSVs are missing."""
+    train_path = data_dir / "trainingData.csv"
+    val_path = data_dir / "validationData.csv"
+    if train_path.exists() and val_path.exists():
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = data_dir / "ujiindoorloc.zip"
+    print(f"Downloading UJIIndoorLoc dataset from {UCI_URL}...")
+    urllib.request.urlretrieve(UCI_URL, zip_path)
+    print("Extracting dataset...")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(data_dir)
+    # Move CSVs from subfolder if needed
+    subfolder = data_dir / "UJIndoorLoc"
+    if subfolder.exists():
+        for csv_file in subfolder.glob("*.csv"):
+            dest = data_dir / csv_file.name
+            if not dest.exists():
+                shutil.move(str(csv_file), str(dest))
+    if zip_path.exists():
+        zip_path.unlink()
+    print("Raw dataset files ready in data/.")
+
+
 def _load(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        ensure_dataset(DATA_DIR)
     if not path.exists():
         raise FileNotFoundError(f"{path} not found. {_DOWNLOAD_HINT}")
     df = pd.read_csv(path)

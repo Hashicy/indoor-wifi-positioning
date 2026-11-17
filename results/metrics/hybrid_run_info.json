@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-11-17 15:30:08",
+  "platform": "macOS-27.2.1-arm64-arm-64bit",
+  "python": "3.11.17",
+  "torch": "2.14.1",
+  "device": "cpu",
+  "total_runtime_s": 37.01,
+  "best_hybrid_test_mean_error_m": 8.509,
+  "best_hybrid_test_median_error_m": 6.305,
+  "best_hybrid_test_floor_acc": 0.9208,
+  "best_hybrid_test_building_acc": 0.9982
+}

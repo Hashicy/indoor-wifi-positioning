@@ -17,6 +17,9 @@ venv/
 # Saved models (large files)
 models/*
 !models/README.md
+!models/*_best.pth
+!models/dl_preprocessing.joblib
+models/*_seed*_best.pth
 
 # OS / editor
 .DS_Store

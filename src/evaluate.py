@@ -1065,8 +1065,15 @@ def run_member4_evaluation_suite(repo_root: Optional[Path] = None):
     print(f"  -> Saved {out_dir / 'failure_cases_analysis.csv'} ({len(failure_df)} flagged samples)")
 
     print("\n" + "=" * 78)
-    print("MEMBER 4 EVALUATION PIPELINE COMPLETED SUCCESSFULLY")
+    print("DEEP LEARNING EVALUATION PIPELINE COMPLETED SUCCESSFULLY")
     print("=" * 78)
+
+
+# Clean aliases
+generate_dl_visualizations = generate_member4_visualizations
+run_dl_evaluation_suite = run_member4_evaluation_suite
+generate_visualizations = generate_member4_visualizations
+run_evaluation_suite = run_member4_evaluation_suite
 
 
 if __name__ == "__main__":

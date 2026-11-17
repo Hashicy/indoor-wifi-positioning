@@ -1,4 +1,4 @@
-"""Metrics module for indoor Wi-Fi positioning evaluation (Member 4).
+"""Metrics module for indoor Wi-Fi positioning evaluation.
 
 This module defines standard evaluation metrics for hierarchical indoor localization:
 1. Building classification: accuracy, macro precision, recall, macro-F1, confusion matrix.

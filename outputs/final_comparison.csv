@@ -1,0 +1,10 @@
+Model,Category,Building Acc (%),Floor Acc (%),Joint Acc (%),Mean Error (m),Median Error (m),P75 Error (m),P90 Error (m),Max Error (m),MAE (m),RMSE (m),R2,EvAAL Score
+Classical Baseline (Random Forest),Classical ML,99.73,89.92,89.74,12.3,8.15,15.65,29.55,98.42,7.92,12.95,0.978,13.04
+Classical Baseline (Extra Trees),Classical ML,99.73,89.92,89.74,12.46,7.66,15.42,25.68,94.1,8.01,15.32,0.9706,13.2
+"Classical Baseline (KNN, k=5)",Classical ML,98.92,75.43,75.16,13.68,8.2,15.75,29.21,115.3,8.82,16.81,0.964,15.54
+Classical Baseline (XGBoost),Classical ML,99.82,89.56,89.56,22.7,15.17,29.8,47.77,135.2,14.7,23.14,0.9401,23.41
+Single-task DL (Specialized Networks),Deep Learning,100.0,91.9,91.9,8.66,6.37,10.95,17.13,81.35,5.51,8.25,0.9835,9.02
+Multitask DL (Shared Trunk + 3 Heads),Deep Learning,99.73,91.0,91.0,8.95,7.04,11.05,17.87,80.72,5.72,8.58,0.9822,9.5
+Hybrid Stacking (DL + Tree Probabilities),Hybrid DL+ML,99.82,92.08,92.08,8.86,6.69,11.04,17.72,80.12,5.65,8.3,0.9833,9.31
+Hybrid Residual Correction (DL + Residual GBDT),Hybrid DL+ML,99.73,91.0,91.0,8.75,6.69,11.07,17.59,79.45,5.58,8.5,0.9825,9.29
+Full Hybrid (Stacked DL + Residual GBDT),Hybrid DL+ML,99.82,92.08,92.08,8.51,6.3,10.72,17.58,78.9,5.42,8.16,0.9839,8.96

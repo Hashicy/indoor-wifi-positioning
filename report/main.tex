@@ -22,8 +22,8 @@
 \usepackage{url}
 \def\UrlBreaks{\do\/\do-\do.\do_}
 
-% Look for figures in report/figures/ first, then in results/figures/
-\graphicspath{{figures/}{../results/figures/}}
+% Look for figures in report/figures/ first, then in results/figures/, then outputs/
+\graphicspath{{figures/}{../results/figures/}{../outputs/}}
 
 % Avoid bad breaks in IEEE two-column layout
 \hyphenation{fin-ger-print fin-ger-prints lo-cal-i-za-tion}
@@ -643,7 +643,12 @@ Large errors concentrate at building boundaries and along corridors where the fi
 \input{sections/loss_regularization}
 
 % ======================================================================
-% SECTION VIII -- CONCLUSION
+% SECTION VIII -- RESULTS, EVALUATION AND FAILURE ANALYSIS (Member 4)
+% ======================================================================
+\input{sections/results_evaluation}
+
+% ======================================================================
+% SECTION IX -- CONCLUSION AND FUTURE WORK
 % ======================================================================
 \section{Conclusion and Future Work}
 \label{sec:conclusion}

@@ -1,0 +1,90 @@
+% ---------------------------------------------------------------
+% IV. Deep Learning Architecture  (Member 1)
+% ---------------------------------------------------------------
+
+\subsection{Data Split and Preprocessing}
+
+We keep the cleaning of Phase~1: the 637 exact duplicates and the scans with no detected access point
+are removed, leaving 19{,}227 training fingerprints. The official validation file (1{,}111 scans) is the
+held-out \emph{test} set and is used only once, for the final results. To tune and early-stop the
+networks we need a separate validation set, which we carve out of the training file: 15\% of the
+\emph{reference positions} (2{,}795 scans) go to validation and the rest (16{,}432 scans) to training.
+The split is grouped by position because each position was scanned about 20 times; a random split would
+place near-identical fingerprints on both sides and make validation scores over-optimistic. The resulting
+train and validation sets share no position, and all 13 building--floor classes appear in both.
+
+Each fingerprint uses the RSSI of the access points observed at least once in the training part
+($d = 459$). Undetected access points (coded $+100$) are set to $-110$~dBm, below the weakest real reading,
+and every feature is mapped to $[0, 1]$ with a min--max scaler fitted on the training part only. Building
+and floor labels are integer-encoded. The coordinates (UTM metres) are standardised with the training mean
+and standard deviation, since raw values of the order of $4.86\times10^{6}$ would dominate the loss;
+predictions are transformed back to metres before any error is computed.
+
+\subsection{Multitask Network}
+
+The network has a shared trunk of three fully connected blocks with 512, 256 and 128 units. Each block
+applies a linear layer, layer normalisation and a GELU activation; the first two also apply dropout with
+probability 0.2. The 128-dimensional output is a representation shared by three task heads: a linear
+layer with 3 outputs (building logits), one with 5 outputs (floor logits) and one with 2 outputs
+(standardised coordinates). The model has about $4.0\times10^{5}$ trainable parameters. Sharing the trunk
+is the hard parameter sharing form of multitask learning described by Caruana~\cite{caruana1997multitask}:
+the training signal of each task acts as an inductive bias for the others.
+
+The training objective is the unweighted sum
+\begin{equation}
+\mathcal{L} = \mathcal{L}_{\text{building}} + \mathcal{L}_{\text{floor}} + \mathcal{L}_{\text{coords}},
+\end{equation}
+where the two classification losses are cross-entropies on the logits and $\mathcal{L}_{\text{coords}}$ is
+the mean squared error on the standardised coordinates. Loss weighting is studied separately in
+Section~VI. We train with Adam (learning rate $10^{-3}$, batch size 128) for at most 150 epochs.
+
+\subsection{Model Selection}
+
+Early stopping on the validation loss fails for this problem. After two epochs the validation floor
+cross-entropy starts to rise, because the network becomes over-confident on a few hard scans, although
+floor accuracy remains stable and the coordinate error keeps decreasing for many more epochs. Because the
+classification losses are also about an order of magnitude larger than the coordinate loss, the summed
+validation loss effectively monitors the floor alone. We therefore select the epoch that minimises the
+evaluation score of the EvAAL/IPIN~2015 competition on this dataset~\cite{evaal2015},
+\begin{equation}
+s = \frac{1}{N}\sum_{i=1}^{N} \Big( \lVert \mathbf{p}_i - \hat{\mathbf{p}}_i \rVert_2
+      + 50\,\mathbb{1}[\hat{b}_i \neq b_i] + 4\,\lvert \hat{f}_i - f_i \rvert \Big),
+\end{equation}
+computed on the validation set, where $\mathbf{p}_i$, $b_i$ and $f_i$ are the true position, building and
+floor of scan $i$. Training stops after 20 epochs without improvement and the best checkpoint is restored.
+
+\subsection{Single-Task Baselines}
+
+To measure the effect of sharing, we train three single-task networks with exactly the same trunk,
+preprocessing, optimiser, split and stopping rule, each with only one head: building only, floor only and
+coordinates only. Their selection score uses only the term of $s$ that they predict. Every model is
+trained with three random seeds (42, 7, 123), and we report the mean and standard deviation on the test set.
+
+\subsection{Results}
+Table~\ref{tab:dl_results} reports test-set results averaged over three seeds. Both network types clearly
+improve positioning over the Phase~1 Random Forest (mean error 12.30~m, floor accuracy 89.92\%): the multitask
+network reaches a mean error of 9.03~m and a floor accuracy of 91.21\%. Compared with the single-task networks,
+however, sharing the trunk brings no measurable benefit under the unweighted loss: floor accuracy is equal
+within the seed-to-seed spread, while the coordinate error (9.03 vs 8.59~m) and building accuracy (99.88 vs
+99.97\%) are slightly worse. This is consistent with Caruana's observation that multitask learning is an
+inductive bias that can either help or hurt~\cite{caruana1997multitask}. A plausible cause is the imbalance of
+loss scales: on the validation set the floor cross-entropy is roughly twenty times larger than the
+coordinate loss, so the shared representation is driven mainly by the floor task. Section~VI examines loss
+weighting as a remedy.
+
+\begin{table}[!t]
+\centering
+\caption{Test-set results (mean $\pm$ standard deviation over three seeds)}
+\label{tab:dl_results}
+\begin{tabular}{lcc}
+\toprule
+ & \textbf{Multitask} & \textbf{Single-task} \\
+\midrule
+Building accuracy (\%) & $99.88 \pm 0.14$ & $99.97 \pm 0.05$ \\
+Floor accuracy (\%) & $91.21 \pm 0.23$ & $91.51 \pm 0.68$ \\
+Mean error (m) & $9.03 \pm 0.10$ & $8.59 \pm 0.11$ \\
+Median error (m) & $7.17 \pm 0.14$ & $6.30 \pm 0.13$ \\
+P90 error (m) & $17.70 \pm 0.27$ & $16.91 \pm 0.25$ \\
+\bottomrule
+\end{tabular}
+\end{table}

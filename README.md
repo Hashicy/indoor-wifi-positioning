@@ -286,8 +286,20 @@ indoor-wifi-positioning/
 ├── src/                                # Core production library
 │   ├── __init__.py
 │   ├── data_loader.py                  # Loading, cleaning & train/val splitting
+│   ├── data_preprocessing.py           # DL-phase preprocessing pipeline
+│   ├── dataset.py                      # PyTorch Dataset and DataLoader
 │   ├── preprocessing.py               # WifiPreprocessor scikit-learn transformer
-│   └── evaluate.py                     # Master evaluation & metric generation
+│   ├── evaluate.py                     # Master evaluation & metric generation
+│   ├── models/
+│   │   ├── multitask_net.py            # Shared-trunk multitask neural network
+│   │   ├── hybrid_model.py            # Hybrid DL+ML positioning system
+│   │   └── loss.py                    # Loss functions (basic combined + uncertainty weighting)
+│   ├── augmentations.py               # RSSI noise & AP dropout augmentations
+│   ├── ablation.py                    # Member 3 ablation study runner (9 experiments)
+│   ├── train_multitask.py             # Multitask DL training pipeline
+│   ├── train_hybrid.py                # Hybrid training pipeline
+│   ├── stacking_features.py           # Tree probability stacking features
+│   └── residual_correction.py         # Residual coordinate correction
 └── requirements.txt                    # Project dependencies
 ```
 

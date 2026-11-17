@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-11-17 17:13:09",
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "python": "3.13.6",
+  "torch": "2.15.0",
+  "sklearn": "1.9.1",
+  "device": "cpu",
+  "total_runtime_s": 317.59,
+  "num_experiments": 9,
+  "best_experiment": "D",
+  "best_test_score": 9.3589,
+  "data_sizes": {
+    "train": 16432,
+    "val": 2795,
+    "test": 1111
+  }
+}

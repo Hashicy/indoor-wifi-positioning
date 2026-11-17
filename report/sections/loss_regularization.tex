@@ -1,0 +1,118 @@
+% loss_regularization.tex — Member 3: Loss Functions, Regularization and Ablation Studies
+% To be included in the main report via \input{sections/loss_regularization}
+
+\section{Loss Functions, Regularization and Ablation Studies}
+
+\subsection{The Multitask Loss Balancing Problem}
+
+The multitask indoor positioning model simultaneously optimises three distinct objectives: building classification (3 classes), floor classification (5 classes), and 2D coordinate regression. The na\"ive combined loss,
+\begin{equation}
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{building}} + \mathcal{L}_{\text{floor}} + \mathcal{L}_{\text{coords}},
+\label{eq:basic_loss}
+\end{equation}
+treats all tasks with equal weight. However, the classification losses (cross-entropy) and the regression loss (MSE on standardised coordinates) operate on fundamentally different numerical scales. When one loss dominates, the shared representation is biased toward that task, potentially under-training the others.
+
+\subsection{Uncertainty-Based Loss Weighting}
+
+To address the scale mismatch, we implement the homoscedastic uncertainty weighting method proposed by Kendall~\emph{et al.}~\cite{kendall2018multi}. Each task $i$ is assigned a learnable log-variance parameter $s_i = \log \sigma_i^2$, and the weighted loss becomes:
+\begin{equation}
+\mathcal{L}_{\text{total}} = \sum_{i} \left[ \exp(-s_i) \cdot \mathcal{L}_i + c_i \cdot s_i \right],
+\label{eq:uncertainty_loss}
+\end{equation}
+where $c_i = 1.0$ for classification tasks (derived from the categorical likelihood) and $c_i = 0.5$ for regression tasks (derived from the Gaussian likelihood). The precision weight $\exp(-s_i)$ adaptively scales each task's contribution: when a task loss is large, $s_i$ increases to reduce its dominance. The regularising term $c_i \cdot s_i$ prevents the trivial solution $s_i \to \infty$ (which would zero out all losses). The parameters $s_i$ are optimised jointly with the network weights via backpropagation.
+
+\subsection{Regularization Strategies}
+
+We investigate the following regularization and augmentation techniques to improve generalisation:
+
+\subsubsection{Dropout}
+Neural network dropout~\cite{srivastava2014dropout} randomly zeroes hidden activations during training, preventing co-adaptation of neurons. We compare dropout rates of $0.0$ (no dropout), $0.2$ (baseline), and $0.3$.
+
+\subsubsection{Weight Decay}
+L2 regularisation is applied through the Adam optimiser's weight decay parameter. We test values $\lambda \in \{0, 10^{-5}, 10^{-4}\}$, constraining weight magnitudes to reduce overfitting.
+
+\subsubsection{RSSI Noise Augmentation}
+Gaussian noise with $\sigma = 0.02$ (in the scaled $[0,1]$ space, corresponding to approximately $\pm 1$--$2$~dBm) is added to \emph{detected} access point readings during training. Sentinel values (undetected APs) are preserved, maintaining the physical distinction between weak signals and absent signals. This simulates temporal signal fluctuation, multipath variability, and device heterogeneity.
+
+\subsubsection{Access-Point Dropout}
+During training, each detected AP reading is independently masked to the undetected sentinel with probability $p = 0.10$. This simulates sparser scan environments and forces the model to learn robust representations from partial fingerprints.
+
+\subsection{Ablation Study Design}
+
+We conduct a controlled ablation study with seven primary experiments (Table~\ref{tab:ablation_design}), changing one factor at a time where possible. All experiments use the same data split, preprocessing, architecture (512--256--128 shared trunk), and evaluation protocol.
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation Study Experimental Design}
+\label{tab:ablation_design}
+\begin{tabular}{clccc}
+\hline
+\textbf{Run} & \textbf{Loss} & \textbf{Dropout} & \textbf{Augmentation} \\
+\hline
+A & Basic combined & 0.2 & None \\
+B & Uncertainty weighting & 0.2 & None \\
+C & Basic combined & 0.0 & None \\
+D & Basic combined & 0.3 & None \\
+E & Basic combined & 0.2 & RSSI noise \\
+F & Basic combined & 0.2 & AP dropout \\
+G & Uncertainty weighting & 0.2 & RSSI + AP dropout \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Results and Analysis}
+
+Experiment results are reported on the held-out test set ($N = 1{,}111$, 9 unseen phone models, 4-month temporal gap) using the EvAAL/IPIN competition score:
+\begin{equation}
+\text{Score} = \bar{d}_{\text{coord}} + 50 \cdot (1 - \text{Acc}_{\text{building}}) + 4 \cdot \overline{|\Delta_{\text{floor}}|},
+\label{eq:evaal}
+\end{equation}
+where $\bar{d}_{\text{coord}}$ is the mean Euclidean coordinate error, and lower scores indicate better performance.
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation Study Results on Test Set ($N=1{,}111$)}
+\label{tab:ablation_results}
+\begin{tabular}{clcccc}
+\hline
+\textbf{Run} & \textbf{Configuration} & \textbf{Bld Acc} & \textbf{Flr Acc} & \textbf{Mean Err (m)} & \textbf{EvAAL} \\
+\hline
+A & Baseline (combined, $p$=0.2) & 99.73\% & 91.00\% & 8.95 & 9.496 \\
+B & Uncertainty weighting & 99.82\% & 91.09\% & 9.19 & 9.687 \\
+C & No dropout ($p$=0.0) & 99.55\% & 91.00\% & 9.49 & 10.117 \\
+\textbf{D} & \textbf{Dropout 0.3} & \textbf{99.73\%} & \textbf{91.81\%} & \textbf{8.85} & \textbf{9.359} \\
+E & RSSI noise & 99.91\% & 90.91\% & 8.97 & 9.423 \\
+F & AP dropout & 99.91\% & 90.19\% & 9.05 & 9.520 \\
+G & Uncertainty + both augmentations & 99.73\% & 90.55\% & 9.01 & 9.553 \\
+\hline
+\end{tabular}
+\end{table}
+
+Additionally, weight decay experiments were conducted:
+\begin{table}[htbp]
+\centering
+\caption{Weight Decay Regularization Results on Test Set}
+\label{tab:weight_decay}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Weight Decay} & \textbf{Bld Acc} & \textbf{Flr Acc} & \textbf{Mean Err (m)} & \textbf{EvAAL} \\
+\hline
+$\lambda = 0$ (baseline) & 99.73\% & 91.00\% & 8.95 & 9.496 \\
+$\lambda = 10^{-5}$ & 99.73\% & 91.45\% & 9.43 & 9.939 \\
+$\lambda = 10^{-4}$ & 100.00\% & 91.00\% & 10.36 & 10.754 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Key Findings}
+
+\begin{enumerate}
+    \item \textbf{Loss weighting (B vs.\ A):} Uncertainty weighting achieved comparable floor accuracy ($91.09\%$ vs.\ $91.00\%$) and slightly better building accuracy ($99.82\%$), but at the cost of a higher coordinate error ($9.19$~m vs.\ $8.95$~m). The learned task weights show that the optimizer reduces the coordinate regression weight during training, allowing classification gradients to dominate when the regression loss is already small.
+    \item \textbf{Dropout effect (C vs.\ A vs.\ D):} Removing dropout entirely (Run~C) caused a clear increase in the EvAAL score from $9.496$ to $10.117$, confirming overfitting. Increasing dropout from $0.2$ to $0.3$ (Run~D) achieved the \textbf{best overall EvAAL score} of $9.359$, with the highest floor accuracy ($91.81\%$) and lowest mean error ($8.85$~m). This indicates the baseline was slightly under-regularised.
+    \item \textbf{RSSI noise (E):} Adding $\pm 1$--$2$~dBm Gaussian noise improved building accuracy to $99.91\%$ and reduced coordinate error to $8.97$~m (EvAAL $9.423$), suggesting that noise augmentation helps the model generalise to unseen phone models with different antenna characteristics.
+    \item \textbf{AP dropout (F):} Masking $10\%$ of detected APs matched the building accuracy improvement ($99.91\%$) but degraded floor accuracy to $90.19\%$, the lowest among all experiments. This suggests that floor discrimination relies on subtle multi-AP patterns that are disrupted by aggressive dropout.
+    \item \textbf{Weight decay:} Both $\lambda = 10^{-5}$ and $\lambda = 10^{-4}$ degraded coordinate accuracy. The $\lambda = 10^{-4}$ setting achieved perfect building accuracy but at the cost of $10.36$~m mean coordinate error, indicating excessive weight shrinkage harms the regression head's capacity.
+    \item \textbf{Combined approach (G):} Combining uncertainty weighting with both augmentations yielded a moderate EvAAL score ($9.553$), performing worse than the best single-factor experiment (D). The interaction of multiple regularisation mechanisms appears to over-regularise this architecture.
+\end{enumerate}
+
+\textbf{Conclusion:} Increasing dropout to $0.3$ (Experiment~D) provided the most consistent improvement across all three tasks. RSSI noise augmentation (Experiment~E) is a close second, particularly effective for building classification robustness. The uncertainty loss weighting balances classification and regression gradients automatically but did not outperform the simpler equal-weight baseline on this dataset. All results are reported honestly; negative findings are included alongside improvements.

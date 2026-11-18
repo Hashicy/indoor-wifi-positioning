@@ -16,23 +16,15 @@ An end-to-end deep learning and machine learning system for indoor positioning u
 
 ---
 
-
 ## Team & Workstream Responsibilities
 
-| Student Name | Enrollment No. | Email |
-| :--- | :--- | :--- |
-| Harshita Joshi | 2401010184 | harshita.joshi2024@nst.rishihood.edu.in |
-| Soumya Tiwari | 2401020111 | soumya.tiwari2024@nst.rishihood.edu.in |
-| Niharika Choudhary | 2401010298 | niharika.choudhary2024@nst.rishihood.edu.in |
-| Shreshtha Gupta | 2401010446 | shreshtha.gupta2024@nst.rishihood.edu.in |
-| Karan Chhillar | 2401010211 | karan.chhillar2024@nst.rishihood.edu.in |
-
-The Phase 2 work was split into five workstreams:
-- **Member 1 – Deep Learning Architecture & Core Pipeline:** dataset inspection, position-grouped data split (`GroupShuffleSplit`), preprocessing, the 512–256–128 shared-trunk multitask network, and single-task baselines.
-- **Member 2 – Hybrid Deep Learning + Machine Learning:** classical baseline audit, out-of-fold (OOF) tree probability stacking, and gradient-boosted (GBDT) residual coordinate correction.
-- **Member 3 – Loss Functions, Regularization & Ablation:** homoscedastic uncertainty weighting (Kendall et al.), dropout, weight decay, RSSI Gaussian noise, and access-point dropout.
-- **Member 4 – Evaluation, Error Analysis & Visualization:** metrics, EvAAL scoring, confusion matrices, error histograms, CDFs, spatial error maps, and failure-case analysis.
-- **Member 5 – Literature, Integration & Reporting:** literature review, theory, unit-test consolidation, the IEEE report (`report/main.tex`), the presentation, and viva preparation.
+| Member | Student Name | Enrollment No. | Email | Role & Responsibilities |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | Niharika Choudhary | 2401010298 | niharika.choudhary2024@nst.rishihood.edu.in | **Deep Learning Architecture & Core Pipeline:** dataset inspection, position-grouped data split (`GroupShuffleSplit`), preprocessing, the 512–256–128 shared-trunk multitask network, and single-task baselines |
+| 2 | Harshita Joshi | 2401010184 | harshita.joshi2024@nst.rishihood.edu.in | **Hybrid Deep Learning + Machine Learning:** classical baseline audit, out-of-fold (OOF) tree probability stacking, and gradient-boosted (GBDT) residual coordinate correction |
+| 3 | Shreshtha Gupta | 2401010446 | shreshtha.gupta2024@nst.rishihood.edu.in | **Loss Functions, Regularization & Ablation:** homoscedastic uncertainty weighting (Kendall et al.), dropout, weight decay, RSSI Gaussian noise, and access-point dropout |
+| 4 | Soumya Tiwari | 2401020111 | soumya.tiwari2024@nst.rishihood.edu.in | **Evaluation, Error Analysis & Visualization:** metrics, EvAAL scoring, confusion matrices, error histograms, CDFs, spatial error maps, and failure-case analysis |
+| 5 | Karan Chhillar | 2401010211 | karan.chhillar2024@nst.rishihood.edu.in | **Literature, Integration & Reporting:** literature review, theory, unit-test consolidation, the IEEE report (`report/main.tex`), the presentation, and viva preparation |
 
 ---
 

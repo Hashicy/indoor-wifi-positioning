@@ -4,9 +4,8 @@
 % Author: Team Member 2 (Hybrid Innovation Specialist)
 % ─────────────────────────────────────────────────────────────────────────────
 
-\label{sec:hybrid-methodology}
-
 \section{Hybrid Deep Learning and Machine Learning Methodology}
+\label{sec:hybrid-methodology}
 
 While deep multitask neural networks offer strong inductive bias through shared representation learning, Wi-Fi fingerprint-based indoor localization presents domain-specific structural asymmetries that challenge pure deep learning architectures:
 \begin{enumerate}
@@ -91,12 +90,12 @@ Fig.~\ref{fig:hybrid_pipeline} illustrates the complete dataflow of the unified 
   \node[blk] (raw) {Raw RSSI Scan\\$\mathbf{x} \in \mathbb{R}^{459}$};
   \node[blk, right=of raw] (tree) {Tree Classifiers\\(OOF RF Ensembles)};
   \node[blk, below=of raw] (concat) {Hybrid Tensor $\mathbf{z}$\\$[ \mathbf{x} \,\|\, \mathbf{p}_{\text{bld}} \,\|\, \mathbf{p}_{\text{flr}} ]$};
-  \node[blk, right=of concat] (trunk) {Shared Deep Trunk\\ResNet-MLP ($128$)};
-  \node[out, below=of concat] (bld) {Building Head\\$\hat{y}_{\text{bld}} \in \{0,1,2\}$};
-  \node[out, right=of bld] (flr) {Floor Head\\$\hat{y}_{\text{flr}} \in \{0..4\}$};
+  \node[blk, right=of concat] (trunk) {Shared MLP Trunk\\(512--256--128)};
+  \node[outblk, below=of concat] (bld) {Building Head\\$\hat{y}_{\text{bld}} \in \{0,1,2\}$};
+  \node[outblk, right=of bld] (flr) {Floor Head\\$\hat{y}_{\text{flr}} \in \{0..4\}$};
   \node[blk, right=of trunk] (coords_dl) {DL Regressor\\$\hat{\mathbf{y}}^{\text{DL}} \in \mathbb{R}^2$};
   \node[blk, below=of coords_dl] (gbdt) {Residual GBDT\\$\hat{\mathbf{e}} \in \mathbb{R}^2$};
-  \node[out, below=of gbdt] (final_coords) {Corrected Coords\\$\hat{\mathbf{y}}^{\text{hybrid}} = \hat{\mathbf{y}}^{\text{DL}} + \hat{\mathbf{e}}$};
+  \node[outblk, below=of gbdt] (final_coords) {Corrected Coords\\$\hat{\mathbf{y}}^{\text{hybrid}} = \hat{\mathbf{y}}^{\text{DL}} + \hat{\mathbf{e}}$};
 
   \draw[arr] (raw) -- (tree);
   \draw[arr] (raw) -- (concat);
@@ -136,27 +135,27 @@ All models are evaluated on the official UJIIndoorLoc benchmark test partition (
 \toprule
 \textbf{Model / Pipeline} & \textbf{Building Acc.} & \textbf{Floor Acc.} & \textbf{Joint Acc.} & \textbf{Mean Err. (m)} & \textbf{Median Err. (m)} & \textbf{P90 Err. (m)} & \textbf{RMSE (m)} & \textbf{EvAAL Score} \\
 \midrule
-Classical RF Baseline (Phase 1) & 99.73\% & 89.92\% & 89.92\% & 12.30 & 8.15 & 29.55 & 12.95 & 12.71 \\
-Experiment A: DL Baseline       & 99.73\% & 91.00\% & 91.00\% & 8.95  & 7.04 & 17.87 & 11.23 & 9.50  \\
-Experiment B: DL + Tree Stacking & \textbf{99.82\%} & \textbf{92.08\%} & \textbf{92.08\%} & 8.86  & 6.69 & 17.72 & 11.19 & 9.28  \\
-Experiment C: DL + Residual GBDT& 99.73\% & 91.00\% & 91.00\% & 8.75  & 6.69 & 17.59 & 10.98 & 9.15  \\
-\textbf{Full Combined Hybrid}   & \textbf{99.82\%} & \textbf{92.08\%} & \textbf{92.08\%} & \textbf{8.51}  & \textbf{6.30} & \textbf{17.58} & \textbf{10.82} & \textbf{8.92}  \\
+Classical RF Baseline (Phase 1) & 99.73\% & 89.92\% & 89.74\% & 12.30 & 8.15 & 29.55 & 12.95 & 13.04 \\
+Experiment A: DL Baseline       & 99.73\% & 91.00\% & 91.00\% & 8.95  & 7.04 & 17.87 & 8.58 & 9.50  \\
+Experiment B: DL + Tree Stacking & \textbf{99.82\%} & \textbf{92.08\%} & \textbf{92.08\%} & 8.86  & 6.69 & 17.72 & 8.30 & 9.31  \\
+Experiment C: DL + Residual GBDT& 99.73\% & 91.00\% & 91.00\% & 8.75  & 6.69 & 17.59 & 8.50 & 9.29  \\
+\textbf{Full Combined Hybrid}   & \textbf{99.82\%} & \textbf{92.08\%} & \textbf{92.08\%} & \textbf{8.51}  & \textbf{6.30} & \textbf{17.58} & \textbf{8.16} & \textbf{8.96}  \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \subsubsection{Key Empirical Insights}
 \begin{enumerate}
-    \item \textbf{Stacking Solves Vertical Inter-Floor Ambiguity:} Tree probability stacking improves test floor accuracy from $91.00\%$ to $\mathbf{92.08\%}$ ($+1.08\%$ absolute gain), cutting floor misclassifications by over $12\%$. Tree estimators provide crisp, threshold-based floor boundaries that constrain the neural network from confusing adjacent vertical levels.
-    \item \textbf{Residual GBDT Captures Local Multipath Bias:} Residual coordinate correction significantly reduces positioning errors across all metric percentiles. In the Full Hybrid pipeline, mean Euclidean error drops from $8.95$\,m to $\mathbf{8.51}$\,m ($-0.44$\,m), and median error drops from $7.04$\,m to $\mathbf{6.30}$\,m (a substantial $\mathbf{0.74}$\,m or $10.5\%$ reduction).
-    \item \textbf{Decimation of Extreme Outlier Errors:} Relative to the classical Phase 1 Random Forest baseline ($29.55$\,m P90 error), the Full Combined Hybrid cuts 90th-percentile error to $\mathbf{17.58}$\,m (a massive $\mathbf{40.5\%}$ error reduction), eliminating the long-tail failure modes characteristic of unconstrained spatial regression.
+    \item \textbf{Stacking Solves Vertical Inter-Floor Ambiguity:} Tree probability stacking improves test floor accuracy from $91.00\%$ to $\mathbf{92.08\%}$ ($+1.08\%$ absolute gain), cutting floor misclassifications by $12\%$ (from 100 to 88 scans). Tree estimators provide crisp, threshold-based floor boundaries that constrain the neural network from confusing adjacent vertical levels.
+    \item \textbf{Residual GBDT Captures Local Multipath Bias:} Residual coordinate correction reduces the mean, median and 90th-percentile positioning errors. In the Full Hybrid pipeline, mean Euclidean error drops from $8.95$\,m to $\mathbf{8.51}$\,m ($-0.44$\,m), and median error drops from $7.04$\,m to $\mathbf{6.30}$\,m (a substantial $\mathbf{0.74}$\,m or $10.5\%$ reduction).
+    \item \textbf{Decimation of Extreme Outlier Errors:} Relative to the classical Phase 1 Random Forest baseline ($29.55$\,m P90 error), the Full Combined Hybrid cuts 90th-percentile error to $\mathbf{17.58}$\,m (a $\mathbf{40.5\%}$ reduction), substantially shortening the long error tail of tree-based regression.
 \end{enumerate}
 
-Fig.~\ref{fig:hybrid_cdf} displays the cumulative error distribution (CDF) comparing all configurations. The Full Hybrid curve strictly dominates across all distance thresholds, achieving over $40\%$ of predictions within $5$\,m and $75\%$ within $10$\,m.
+Fig.~\ref{fig:hybrid_cdf} displays the cumulative error distribution (CDF) comparing all configurations. The four curves lie close together; the Full Hybrid is slightly ahead over most of the range, consistent with its lower mean and median error.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{hybrid_comparison_cdf.png}
-\caption{Empirical cumulative distribution function (CDF) of 2D Euclidean localization errors on the held-out test set ($N=1{,}111$). The Full Combined Hybrid achieves superior spatial accuracy across all thresholds.}
+\caption{Empirical cumulative distribution function (CDF) of 2D Euclidean localization errors on the held-out test set ($N=1{,}111$). The four configurations perform similarly, with the Full Combined Hybrid slightly ahead over most of the range.}
 \label{fig:hybrid_cdf}
 \end{figure}

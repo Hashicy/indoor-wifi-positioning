@@ -1,1 +1,0 @@
-"""Train coordinate regression models."""

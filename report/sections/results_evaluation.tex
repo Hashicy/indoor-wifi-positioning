@@ -116,18 +116,18 @@ Fig.~\ref{fig:error_distribution} visualizes the positioning error distributions
 
 The empirical Cumulative Distribution Function (CDF) depicted in Fig.~\ref{fig:error_cdf} highlights localization precision across operational thresholds:
 \begin{itemize}
-    \item \textbf{Fine-grained localization ($< 5$\,m):} Over $33.5\%$ of test predictions from the deep learning model fall within $5$\,m, compared to only $27.1\%$ for Random Forest and $26.4\%$ for $k$-NN.
-    \item \textbf{Room-level localization ($< 10$\,m):} More than $70.6\%$ of predictions achieve sub-$10$\,m accuracy in the deep models, compared to $60.2\%$ for Random Forest.
-    \item \textbf{90th Percentile Reliability ($P_{90}$):} Full Hybrid bounds 90\% of all errors within $17.58$\,m, providing a $40.5\%$ reduction in worst-case error compared to Random Forest ($29.55$\,m) and a $63.2\%$ reduction compared to XGBoost ($47.77$\,m).
+    \item \textbf{Fine-grained localization ($< 5$\,m):} $34.9\%$ of test predictions from the Multitask DL model fall within $5$\,m, compared to $33.4\%$ for Random Forest, $34.1\%$ for Extra Trees and $30.2\%$ for $k$-NN. At this scale the models are close.
+    \item \textbf{Room-level localization ($< 10$\,m):} $70.2\%$ of Multitask DL predictions are within $10$\,m, compared to $59.0\%$ for Random Forest and $58.2\%$ for $k$-NN. The advantage of the neural model therefore lies mainly in reducing medium and large errors.
+    \item \textbf{90th Percentile Reliability ($P_{90}$):} Full Hybrid bounds 90\% of all errors within $17.58$\,m, a $40.5\%$ reduction in 90th-percentile error compared to Random Forest ($29.55$\,m) and a $63.2\%$ reduction compared to XGBoost ($47.77$\,m).
 \end{itemize}
 
 \subsection{Spatial Error Distribution Across Campus Buildings}
 
 Fig.~\ref{fig:spatial_error} maps true ground-truth positions versus predicted coordinates across the three campus buildings. The spatial error vectors reveal clear environmental patterns:
 \begin{itemize}
-    \item \textbf{Building 0 (TI):} Exhibits the lowest median positioning error ($5.31$\,m). The building features a compact rectangular floor plan with dense, uniform ceiling-mounted WAP coverage.
-    \item \textbf{Building 1 (TD):} Experiences moderate errors (mean $8.24$\,m, median $6.82$\,m). Large lecture halls produce open-space multipath reflection where signal gradients are shallow.
-    \item \textbf{Building 2 (ESTCE):} Contains the highest error density (mean $11.02$\,m, median $8.74$\,m). ESTCE is the largest building with complex architectural wings, atrium voids, and outer glass facades, creating pronounced signal shadowing.
+    \item \textbf{Building 0 (TI):} Exhibits the lowest positioning error (mean $7.09$\,m, median $5.76$\,m). The building features a compact floor plan with dense, uniform WAP coverage.
+    \item \textbf{Building 1 (TD):} Exhibits the highest positioning error (mean $10.96$\,m, median $8.52$\,m) and accounts for 90 of the 178 failure cases. Large lecture halls produce open-space multipath reflection where signal gradients are shallow.
+    \item \textbf{Building 2 (ESTCE):} Shows similarly elevated errors (mean $10.38$\,m, median $7.71$\,m). ESTCE is the largest building, with long wings and glass facades that create pronounced signal shadowing.
 \end{itemize}
 
 \begin{figure*}[t]
@@ -150,4 +150,4 @@ Across the benchmark test set, the number of detectable WAPs per scan ranges fro
 \end{itemize}
 
 \subsubsection{Boundary Ambiguity and Device Heterogeneity}
-The three mispredicted building cases occur exclusively at building entrance boundaries where users stand near exterior glass walls facing an adjacent building. Furthermore, cross-referencing phone identifiers reveals that Phone ID 20 (a handheld model with higher RF antenna gain) recorded disproportionately high signal strengths for off-site access points, confirming that hardware-level antenna calibration remains an essential direction for practical deployment.
+Only three test scans are assigned to the wrong building. One is a sparse scan with only 4 detected WAPs; the other two were recorded with Phone ID 20 and lie near building boundaries. Phone ID 20 also appears in 54 of the 178 failure cases ($30\%$), which suggests that device-dependent RSSI differences contribute to the errors and that per-device calibration is a useful direction for practical deployment.

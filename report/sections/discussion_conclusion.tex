@@ -1,0 +1,62 @@
+% ==============================================================================
+% discussion_conclusion.tex -- Section VIII: Discussion, Limitations, and Conclusion
+% Author: Team Member 5 (Integration and Project Lead) with contributions from all members
+% ==============================================================================
+
+\section{Discussion, Limitations, and Conclusion}
+\label{sec:discussion_conclusion}
+
+\subsection{Synthesis of Key Findings}
+
+This investigation undertook a rigorous, five-member collaborative development and benchmarking study of Wi-Fi fingerprint-based indoor localization on the public UJIIndoorLoc benchmark. By systematically evaluating classical tree ensembles, single-task deep neural networks, unified multitask architectures, and hybrid combinations, several fundamental scientific and practical conclusions emerge:
+
+\begin{enumerate}
+    \item \textbf{Continuous Manifold vs. Step-Function Regression:} 
+    While Random Forests and Extra Trees excel at discrete hierarchical partitioning (achieving $99.73\%$ building accuracy and $89.92\%$ floor accuracy), their piecewise-constant nature imposes an unavoidable discretization penalty on continuous coordinate regression (mean positioning error of $12.30$\,m). Deep neural networks, equipped with smooth GELU activations and LayerNorm regularisation, natively model continuous spatial manifolds, reducing mean coordinate error to $8.95$\,m in the multitask network and $8.51$\,m in the Full Hybrid model (a $30.8\%$ improvement).
+    
+    \item \textbf{Inductive Transfer vs. Loss Scale Disparity:}
+    Caruana's hypothesis of inductive transfer posits that training related tasks jointly benefits the shared representation. In our experiments, multitask learning successfully unified all three spatial heads into a single compact model ($4.0 \times 10^5$ parameters) operating with sub-millisecond inference ($<0.8$\,ms per query on CPU). However, under na\"ive unweighted loss summation, the floor classification loss (cross-entropy $\approx 0.1\text{--}1.5$) numerically dominates the standardized coordinate regression MSE ($\approx 0.02\text{--}0.10$). Uncertainty-based homoscedastic weighting dynamically balances precision weights ($\exp(-s_i)$), stabilizing gradient norms and mitigating negative transfer.
+    
+    \item \textbf{Regularization and Environmental Robustness:}
+    Our ablation studies confirmed that regularisation is indispensable when training on sparse Wi-Fi scans. Increasing hidden-layer dropout from $0.0$ to $0.3$ reduced overfitting on the over-represented Building 0, boosting held-out floor accuracy to $91.81\%$ and yielding the best single-model EvAAL competition score ($9.359$). Furthermore, physical data augmentations—such as injecting Gaussian noise into active RSSI measurements ($\pm 1$--$2$\,dBm) and simulating access-point dropout ($p=0.10$)—improved robustness against peripheral boundary ambiguities without corrupting the unobserved sentinel value.
+    
+    \item \textbf{Complementary Synergy of Hybrid Stacking and Residual Correction:}
+    Rather than viewing deep learning and tree ensembles as competing paradigms, our hybrid architecture combines their unique inductive biases. Probability stacking injects tree-derived discrete structural priors into the neural trunk, lifting floor accuracy to $92.08\%$. Concurrently, residual gradient boosting captures local spatial distortions and wall attenuation effects that elude the smooth neural trunk, driving median positioning error down to $6.30$\,m and achieving the lowest overall EvAAL score of $8.96$.
+\end{enumerate}
+
+\subsection{Limitations and Threats to Validity}
+
+To maintain research integrity, several environmental and experimental limitations must be explicitly noted:
+
+\begin{enumerate}
+    \item \textbf{Single Benchmark Corpus:} 
+    All experiments were conducted on the UJIIndoorLoc dataset. Although it is the largest and most widely cited public Wi-Fi localization benchmark, environmental characteristics (such as building materials, ceiling heights, and AP density) are specific to the Universitat Jaume I campus. Validation across secondary public benchmarks (e.g., Tampere, TUT) is required before generalizing findings to different architectural contexts.
+    
+    \item \textbf{Temporal Radio-Map Drift:} 
+    A four-month temporal gap separates the training data (May--June 2013) from the validation test set (September--October 2013). Seasonal temperature changes, variations in foliage near campus windows, interior furniture rearrangements, and shifting human occupancy alter radio multipath profiles over time, leading to temporal fingerprint degradation.
+    
+    \item \textbf{Device and Antenna Heterogeneity:} 
+    The training set was collected across 16 Android mobile devices, while the test set involved 11 devices (including 9 models completely unobserved during training). Antenna gain variances, receiver chipsets, and driver calibration offsets introduce systematic RSSI shifts of up to $15$\,dBm. While feature scaling to $[0, 1]$ partially alleviates absolute scale discrepancies, device-specific gain variations remain a primary source of boundary misclassifications.
+    
+    \item \textbf{Access Point Sparsity and Dilution of Precision:} 
+    Localization error is strongly correlated with visible AP count. In sparsely covered areas ($\le 8$ detectable APs), the geometric intersection of signal contours experiences severe dilution of precision, leading to occasional large spatial outliers ($>50$\,m).
+\end{enumerate}
+
+\subsection{Future Research Directions}
+
+Future investigations may build upon the architectures established in this paper along three promising directions:
+
+\begin{enumerate}
+    \item \textbf{Spatial-Temporal and Graph Neural Architectures:} 
+    Extending the static fingerprint representation to sequence modeling (via Recurrent Neural Networks, Transformers, or Graph Convolutional Networks) could incorporate pedestrian trajectory constraints and topological connectivity between corridors, stairs, and elevators.
+    
+    \item \textbf{Self-Supervised and Domain Adaptation Frameworks:} 
+    Unsupervised contrastive learning and adversarial domain adaptation could be applied to unlabeled RSSI scans collected across diverse smartphone models, mapping heterogeneous hardware measurements into an invariant canonical latent space.
+    
+    \item \textbf{Continual and Crowdsourced Radio-Map Maintenance:} 
+    Developing lightweight online learning algorithms to incrementally update access-point weightings and residual correctors from passive crowdsourced user scans would prevent radio-map degradation without requiring costly re-survey campaigns.
+\end{enumerate}
+
+\subsection{Conclusion}
+
+This paper has presented an end-to-end investigation into indoor localization using Wi-Fi signal strength fingerprints, progressing from exploratory data analysis and classical ensemble baselines to unified multitask deep learning and hybrid architectures. Our findings demonstrate that combining deep multitask representation learning with leakage-free tree probability stacking and residual gradient boosting outperforms isolated single-task and pure classical models across both discrete topological identification and metric coordinate regression. The complete codebase, preprocessed datasets, trained checkpoints, and evaluation scripts have been structured for end-to-end reproducibility, providing a validated foundation for next-generation indoor positioning systems.
